@@ -36,12 +36,14 @@ from absl import app
 from absl import flags
 import matplotlib
 
-matplotlib.use('Agg')
 from matplotlib import figure  # pylint: disable=g-import-not-at-top
 from matplotlib.backends import backend_agg
 import numpy as np
 import tensorflow.compat.v2 as tf
 import tensorflow_probability as tfp
+
+matplotlib.use('Agg')
+
 
 tf.enable_v2_behavior()
 
@@ -58,19 +60,27 @@ except ImportError:
 tfd = tfp.distributions
 
 IMAGE_SHAPE = [28, 28, 1]
-NUM_TRAIN_EXAMPLES = 600
-NUM_HELDOUT_EXAMPLES = 100
+NUM_TRAIN_EXAMPLES = 60000  # 60000
+NUM_HELDOUT_EXAMPLES = 10000  # 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
+# Distribution of digits to groups
+LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
+                              2: 1, 5: 1,              # 1
+                              1: 2, 4: 2, 7: 2, 9: 2}  # 2
+LABELS_CHANGE_GROUPED = []
+for i in range(NUM_CLASSES):
+    LABELS_CHANGE_GROUPED.append(LABELS_CHANGE_DICT_GROUPED[i])
+LABELS_CHANGE_GROUPED = tuple(LABELS_CHANGE_GROUPED)
 
 flags.DEFINE_float('learning_rate',
                    default=0.001,
                    help='Initial learning rate.')
 flags.DEFINE_integer('num_epochs',
-                     default=3,
+                     default=10,
                      help='Number of training steps to run.')
 flags.DEFINE_integer('num_grouped_epochs',
-                     default=3,
+                     default=10,
                      help='Number of training steps to run grouped inference.')
 flags.DEFINE_integer('batch_size',
                      default=128,
@@ -84,9 +94,7 @@ flags.DEFINE_string(
     default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
                          'bayesian_neural_network/'),
     help="Directory to put the model's fit.")
-flags.DEFINE_integer('viz_steps',
-                     default=400,
-                     help='Frequency at which save visualizations.')
+integer = flags.DEFINE_integer('viz_steps', default=400, help='Frequency at which save visualizations.')
 flags.DEFINE_integer('num_monte_carlo',
                      default=50,
                      help='Network draws to compute predictive probabilities.')
@@ -168,7 +176,7 @@ def plot_heldout_prediction(input_vals, probs,
     print('saved {}'.format(fname))
 
 
-def create_model(output_size=NUM_CLASSES):
+def create_model(input_size=NUM_TRAIN_EXAMPLES, output_size=NUM_CLASSES):
     """Creates a Keras model using the LeNet-5 architecture.
 
   Returns:
@@ -178,7 +186,7 @@ def create_model(output_size=NUM_CLASSES):
     # lambda function to pass as input to the kernel_divergence_fn on
     # flipout layers.
     kl_divergence_function = (lambda q, p, _: tfd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
-                                              tf.cast(NUM_TRAIN_EXAMPLES, dtype=tf.float32))
+                                              tf.cast(input_size, dtype=tf.float32))
 
     # Define a LeNet-5 model using three convolutional (with max pooling)
     # and two fully connected dense layers. We use the Flipout
@@ -227,8 +235,8 @@ def create_model(output_size=NUM_CLASSES):
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
 
-    def __init__(self, data=None, batch_size=128, used_labels=range(10), labels_change_dict={x: x for x in range(10)},
-                 fake_data_size=None):
+    def __init__(self, data=None, batch_size=128, used_labels=tuple(range(10)), labels_len=NUM_CLASSES,
+                 labels_change=tuple(range(10)), preprocessing=True, fake_data_size=None):
         """Initializes the sequence.
 
     Args:
@@ -242,8 +250,11 @@ class MNISTSequence(tf.keras.utils.Sequence):
         else:
             images, labels = MNISTSequence.__generate_fake_data(
                 num_images=fake_data_size, num_classes=NUM_CLASSES)
-        self.images, self.labels = MNISTSequence.__preprocessing(
-            images, labels, used_labels, labels_change_dict)
+        if preprocessing:
+            self.images, self.labels = MNISTSequence.__preprocessing(
+                images, labels, used_labels, labels_change, labels_len)
+        else:
+            self.images, self.labels = images, labels
         self.batch_size = batch_size
 
     @staticmethod
@@ -267,7 +278,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return images, labels
 
     @staticmethod
-    def __preprocessing(images, labels, used_labels, labels_change_dict):
+    def __preprocessing(images, labels, used_labels, labels_change, labels_len):
         """Preprocesses image and labels data.
 
     Args:
@@ -280,17 +291,25 @@ class MNISTSequence(tf.keras.utils.Sequence):
       labels: Numpy `array` representing the labels data (range 0-9),
               as one-hot (categorical) values.
     """
-        # Auxiliary dicts for label - its MNIST representation mapping
-        labels_bin_dict = {i: np.identity(10)[i] for i in range(10)}
-        bin_labels_dict = {v: k for k, v in labels_bin_dict.items()}
+        # Auxiliary dicts for integer label - its MNIST representation mapping
+        #labels_bin_dict = {i: tuple(np.identity(10)[i]) for i in range(10)}
+        #bin_labels_dict = {v: k for k, v in labels_bin_dict.items()}
 
-        indices = [idx in used_labels for idx in bin_labels_dict[labels]]
-        labels = labels[indices]
+        # Get indices of used labels using convertation of MNIST labels from array to integer system
+        indices = []
+        for label in labels:
+            indices.append(int(label) in used_labels)
+        # Select used labels
+        labels_transformed = []
+        for index, flag in enumerate(indices):
+            if flag:
+                labels_transformed.append(labels_change[labels[index]])
+        # Normalize images
         images = 2 * (images[indices] / 255.) - 1.
         images = images[..., tf.newaxis]
+        # Convert labels for cross-entropy loss
+        labels = tf.keras.utils.to_categorical(y=labels_transformed, num_classes=labels_len)
 
-        labels = tf.keras.utils.to_categorical([labels_bin_dict[labels_change_dict[bin_labels_dict[label]]]
-                                                for label in labels])
         return images, labels
 
     def __len__(self):
@@ -302,18 +321,29 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return batch_x, batch_y
 
 
-def train_model(train_set=train_set, labels_change_dict_grouped=labels_change_dict_grouped,
-                used_labels=range(10), output_size=NUM_CLASSES):
+def train_model(train_set, labels_change_grouped=tuple(range(10)), heldout_seq=((),()),
+                used_labels=tuple(range(10)), output_size=NUM_CLASSES):
+    """
+    Trains LeNet model on MNIST data in a flexible to data way
+    :param input_size:
+    :param labels_change_grouped:
+    :param train_set:
+    :param heldout_seq:
+    :param used_labels:
+    :param output_size: number of output classes
+    :return: trained model
+    """
     train_seq = MNISTSequence(data=train_set, batch_size=FLAGS.batch_size, used_labels=used_labels,
-                              labels_change_dict=labels_change_dict_grouped)
+                              labels_change=labels_change_grouped, labels_len=output_size)
 
-    model = create_model(output_size=output_size)
+    model = create_model(input_size=len(train_seq.labels), output_size=output_size)
     # TODO(b/149259388): understand why Keras does not automatically build the
     # model correctly.
-    model.build(input_shape=[None, 28, 28, 1])
+    #model.build(input_shape=[None, 28, 28, 1])
 
     print(' ... Training convolutional neural network, used labels {}'.format(used_labels))
     for epoch in range(FLAGS.num_epochs):
+        print('Epoch {}'.format(epoch))
         epoch_accuracy, epoch_loss = [], []
         for step, (batch_x, batch_y) in enumerate(train_seq):
             batch_loss, batch_accuracy = model.train_on_batch(
@@ -324,10 +354,59 @@ def train_model(train_set=train_set, labels_change_dict_grouped=labels_change_di
             if step % 100 == 0:
                 print('Epoch: {}, Batch index: {}, '
                       'Loss: {:.3f}, Accuracy: {:.3f}'.format(
-                    epoch, step,
-                    tf.reduce_mean(epoch_loss),
-                    tf.reduce_mean(epoch_accuracy)))
+                        epoch, step,
+                        tf.reduce_mean(epoch_loss),
+                        tf.reduce_mean(epoch_accuracy)))
+            if heldout_seq[1]:
+                if (step + 1) % FLAGS.viz_steps == 0:
+                    # Compute log prob of heldout set by averaging draws from the model:
+                    # p(heldout | train) = int_model p(heldout|model) p(model|train)
+                    #                   ~= 1/n * sum_{i=1}^n p(heldout | model_i)
+                    # where model_i is a draw from the posterior p(model|train).
+                    print(' ... Running monte carlo inference')
+                    probs = tf.stack([model.predict(heldout_seq, verbose=1)
+                                      for _ in range(FLAGS.num_monte_carlo)], axis=0)
+                    mean_probs = tf.reduce_mean(probs, axis=0)
+                    heldout_log_prob = tf.reduce_mean(tf.math.log(mean_probs))
+                    print(' ... Held-out nats: {:.3f}'.format(heldout_log_prob))
+
+                    if HAS_SEABORN:
+                        names = [layer.name for layer in model.layers
+                                 if 'flipout' in layer.name]
+                        qm_vals = [layer.kernel_posterior.mean()
+                                   for layer in model.layers
+                                   if 'flipout' in layer.name]
+                        qs_vals = [layer.kernel_posterior.stddev()
+                                   for layer in model.layers
+                                   if 'flipout' in layer.name]
+                        plot_weight_posteriors(names, qm_vals, qs_vals,
+                                               fname=os.path.join(
+                                                   FLAGS.model_dir,
+                                                   'epoch{}_step{:05d}_weights.png'.format(
+                                                       epoch, step)))
+                        plot_heldout_prediction(heldout_seq.images, probs,
+                                                fname=os.path.join(
+                                                    FLAGS.model_dir,
+                                                    'epoch{}_step{}_pred.png'.format(
+                                                        epoch, step)),
+                                                title='mean heldout logprob {:.2f}'
+                                                .format(heldout_log_prob))
     return model
+
+
+def get_labels_groups(labels_change_dict_grouped):
+    """
+    :param labels_change_dict_grouped: dict {class: group}
+    :return: NUM_GROUPS-length tuple of tuples of corresp. labels
+    """
+    res = []
+    for val in range(NUM_GROUPS):
+        res_aux = []
+        for key, value in labels_change_dict_grouped.items():
+            if value == val:
+                res_aux.append(key)
+        res.append(tuple(res_aux))
+    return tuple(res)
 
 
 def main(argv):
@@ -338,62 +417,55 @@ def main(argv):
         tf.io.gfile.rmtree(FLAGS.model_dir)
     tf.io.gfile.makedirs(FLAGS.model_dir)
 
-    if FLAGS.fake_data:
-        train_seq = MNISTSequence(batch_size=FLAGS.batch_size,
-                                  fake_data_size=NUM_TRAIN_EXAMPLES)
-        heldout_seq = MNISTSequence(batch_size=FLAGS.batch_size,
-                                    fake_data_size=NUM_HELDOUT_EXAMPLES)
-    else:
-        train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
+    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
 
-    labels_change_dict_grouped = {0: 0, 3: 0, 6: 0, 8: 0, 2: 1, 5: 1, 1: 2, 4: 2, 7: 2, 9: 2}
+    # Cut sets if needed for optimization
+    train_set = (train_set[0][0:NUM_TRAIN_EXAMPLES], train_set[1][0:NUM_TRAIN_EXAMPLES])
+    heldout_set = (heldout_set[0][0:NUM_HELDOUT_EXAMPLES], heldout_set[1][0:NUM_HELDOUT_EXAMPLES])
 
-    # Training grouped model
-    model_grouped = train_model(train_set=train_set, output_size=NUM_GROUPS,
-                                labels_change_dict_grouped=labels_change_dict_grouped)
+    # NUM_GROUPS-length tuple of tuples of corresp. labels
+    labels_groups = get_labels_groups(LABELS_CHANGE_DICT_GROUPED)
+    # Training grouped model on the whole data but with merged classes
+    model_grouped = train_model(train_set, output_size=NUM_GROUPS, labels_change_grouped=LABELS_CHANGE_GROUPED)
 
-
-    # Train models for each of groups
-    model_0 = train_model(used_labels=(0, 3, 6, 8), output_size=NUM_CLASSES)
-    model_1 = train_model(used_labels=(2, 5), output_size=NUM_CLASSES)
-    model_2 = train_model(used_labels=(1, 4, 7, 9), output_size=NUM_CLASSES)
+    # Train models for each of groups TODO: make loop over models
+    # model_0 = train_model(train_set=train_set, used_labels=labels_groups[0], output_size=NUM_CLASSES)
+    # model_1 = train_model(train_set=train_set, used_labels=labels_groups[1], output_size=NUM_CLASSES)
+    # model_2 = train_model(train_set=train_set, used_labels=labels_groups[2], output_size=NUM_CLASSES)
 
     # Test
-    heldout_seq = MNISTSequence(data=heldout_set, batch_size=FLAGS.batch_size)
-    model_grouped.predict_classes(heldout_seq, verbose=1)
-    if (step + 1) % FLAGS.viz_steps == 0:
-        # Compute log prob of heldout set by averaging draws from the model:
-        # p(heldout | train) = int_model p(heldout|model) p(model|train)
-        #                   ~= 1/n * sum_{i=1}^n p(heldout | model_i)
-        # where model_i is a draw from the posterior p(model|train).
-        print(' ... Running monte carlo inference')
-        probs = tf.stack([model.predict(heldout_seq, verbose=1)
-                          for _ in range(FLAGS.num_monte_carlo)], axis=0)
-        mean_probs = tf.reduce_mean(probs, axis=0)
-        heldout_log_prob = tf.reduce_mean(tf.math.log(mean_probs))
-        print(' ... Held-out nats: {:.3f}'.format(heldout_log_prob))
+    heldout_seq_grouped = MNISTSequence(data=heldout_set, batch_size=FLAGS.batch_size,
+                                        labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS)
+    heldout_seq_classes = MNISTSequence(data=heldout_set, batch_size=FLAGS.batch_size, labels_len=NUM_CLASSES)
 
-        if HAS_SEABORN:
-            names = [layer.name for layer in model.layers
-                     if 'flipout' in layer.name]
-            qm_vals = [layer.kernel_posterior.mean()
-                       for layer in model.layers
-                       if 'flipout' in layer.name]
-            qs_vals = [layer.kernel_posterior.stddev()
-                       for layer in model.layers
-                       if 'flipout' in layer.name]
-            plot_weight_posteriors(names, qm_vals, qs_vals,
-                                   fname=os.path.join(
-                                       FLAGS.model_dir,
-                                       'epoch{}_step{:05d}_weights.png'.format(
-                                           epoch, step)))
-            plot_heldout_prediction(heldout_seq.images, probs,
-                                    fname=os.path.join(
-                                        FLAGS.model_dir,
-                                        'epoch{}_step{}_pred.png'.format(
-                                            epoch, step)),
-                                    title='mean heldout logprob {:.2f}'
-                                    .format(heldout_log_prob))
+    # Predict groups
+    predicted_groups = model_grouped.predict_classes(x=heldout_seq_grouped.images, batch_size=None, verbose=1)
+    print("Got predicted groups")
+
+    # Depending on group predict class
+    true_all = []
+    number_all = []
+    for group in range(NUM_GROUPS):
+        # Get corresponding to group dataNUM_CLASSES
+        indices = predicted_groups == group
+        images_now = heldout_seq_classes.images[indices]
+        labels_now = heldout_seq_classes.labels[indices]
+        heldout_seq_now = MNISTSequence(data=(images_now, labels_now), batch_size=FLAGS.batch_size,
+                                        preprocessing=False)
+        # Train the group-specific model and predict classes
+        model_now = train_model(train_set, used_labels=labels_groups[group], output_size=NUM_CLASSES)
+        predicted_classes_now = model_now.predict_classes(x=heldout_seq_now.images, batch_size=None,  verbose=1)
+        # Calculate amount of correct predictions
+        labels_bin_dict = np.identity(10)
+        ind_correct = list(np.array_equal(heldout_seq_now.labels[i], labels_bin_dict[predicted_classes_now[i]])
+                           for i in range(len(predicted_classes_now)))
+        print(ind_correct)
+        true_now = np.count_nonzero(ind_correct)
+        number_now = len(ind_correct)
+        print('Accuracy group {}: {}/{} = {}'.format(group, true_now, number_now, true_now/number_now))
+        true_all.append(true_now)
+        number_all.append(number_now)
+    print('Final results: {}/{} = {}'.format(sum(true_all), sum(number_all), sum(true_all)/sum(number_all)))
 
 
 if __name__ == '__main__':
