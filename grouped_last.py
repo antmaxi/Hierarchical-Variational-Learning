@@ -41,18 +41,30 @@ NUM_HELDOUT_EXAMPLES = 10  # 00  # 000  # 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
 
-import tensorflow as tf
-import tensorflow_probability as tfp
+LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
+                                      2: 1, 5: 1,  # 1
+                                      1: 2, 4: 2, 7: 2, 9: 2}  # 2
+# build a lookup table
+TABLE = tf.lookup.StaticHashTable(
+    initializer=tf.lookup.KeyValueTensorInitializer(
+        keys=tf.constant(np.array(list(LABELS_CHANGE_DICT_GROUPED.keys())), dtype=np.int32),
+        values=tf.constant(np.array(list(LABELS_CHANGE_DICT_GROUPED.values())),  dtype=np.int32),
+    ),
+    default_value=tf.constant(-1),
+    name="class_to_group"
+)
+
+
 
 parser = argparse.ArgumentParser(description='Choose the type of execution.')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
                     default=0.001)
-parser.add_argument('--epochs', help='Number of training steps to run.', type=int,
+parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
                     default=2)
-parser.add_argument('--epochs_g', help='Number of training steps to run grouped inference.', type=int,
+parser.add_argument('--num_epochs_g', help='Number of training steps to run grouped inference.', type=int,
                     default=10)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=10)
+                    default=5)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
 parser.add_argument('--data_dir', help='Directory where data is stored (if using real data).',
@@ -64,20 +76,20 @@ parser.add_argument('--model_dir', help="Directory to put the model's fit.",
 args = parser.parse_args()
 
 
-#integer = flags.DEFINE_integer('viz_steps', default=400, help='Frequency at which save visualizations.')
-#flags.DEFINE_integer('num_monte_carlo',
+# integer = flags.DEFINE_integer('viz_steps', default=400, help='Frequency at which save visualizations.')
+# flags.DEFINE_integer('num_monte_carlo',
 #                     default=50,
 #                     help='Network draws to compute predictive probabilities.')
-#flags.DEFINE_bool('fake_data',
+# flags.DEFINE_bool('fake_data',
 #                  default=False,
 #                  help='If true, uses fake data. Defaults to real data.')
 
-#FLAGS = flags.FLAGS
+# FLAGS = flags.FLAGS
 
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
 
-    def __init__(self, data=None, batch_size=128, used_labels=tuple(range(10)), labels_len=NUM_CLASSES,
+    def __init__(self, data=None, batch_size=args.batch, used_labels=tuple(range(10)), labels_len=NUM_CLASSES,
                  labels_change=tuple(range(10)), preprocessing=True, fake_data_size=None):
         """Initializes the sequence.
 
@@ -92,13 +104,17 @@ class MNISTSequence(tf.keras.utils.Sequence):
         else:
             images, labels = MNISTSequence.__generate_fake_data(
                 num_images=fake_data_size, num_classes=NUM_CLASSES)
+
         if preprocessing:
             self.images, self.labels = MNISTSequence.__preprocessing(
                 images, labels, used_labels, labels_change, labels_len)
         else:
-            self.images, self.labels = [np.append(images[i].flatten(), labels[i])
-                                        for i in range(np.shape(images)[0])],\
-                                       labels
+            images = 2 * (images / 255.) - 1.
+            labels = tf.keras.utils.to_categorical(labels)
+
+            self.images = np.array([np.append(images[i].flatten(), labels[i])
+                                                 for i in range(np.shape(images)[0])])
+            self.labels = labels
         self.batch_size = batch_size
 
     @staticmethod
@@ -171,7 +187,7 @@ class DenseVariationalGrouped(tfkl.Layer):
                  units,
                  kl_weight,
                  activation=None,
-                 tau_0_inv=1000,
+                 tau_inv_0=1000,
                  v=100,
                  num_groups=NUM_GROUPS,
                  num_sample=args.num_sample,
@@ -181,7 +197,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         # self.shape = (input_size, units)
         self.kl_weight = kl_weight
         self.activation = tfk.activations.get(activation)
-        self.tau_0_inv = tau_0_inv
+        self.tau_inv_0 = tau_inv_0
         self.v = v
         self.num_groups = num_groups
         self.num_sample = num_sample
@@ -196,32 +212,42 @@ class DenseVariationalGrouped(tfkl.Layer):
         self.bias_rho_g = None
         self.tau_g = None
         self.gamma_g = None
+        self.gamma_mu = None
+        self.gamma_rho = None
         # np.sqrt(self.prior_pi_1 * self.prior_sigma_1 ** 2 +
         #        self.prior_pi_2 * self.prior_sigma_2 ** 2)
 
         super().__init__(**kwargs)
 
-    #def compute_output_shape(self, input_shape):
+    # def compute_output_shape(self, input_shape):
     #    return input_shape[0], self.units
 
     def build(self, input_shape):
         print(input_shape)
         self.kernel_mu = self.add_weight(name='kernel_mu',
-                                         shape=(input_shape[1] - 1, self.units),
-                                         initializer=tf.random_normal_initializer(stddev=self.tau_0_inv),
+                                         shape=(input_shape[1] - NUM_CLASSES, self.units),
+                                         initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
                                          trainable=True)
         self.bias_mu = self.add_weight(name='bias_mu',
                                        shape=(self.units,),
-                                       initializer=tf.random_normal_initializer(stddev=self.tau_0_inv),
+                                       initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
                                        trainable=True)
         self.kernel_rho = self.add_weight(name='kernel_rho',
-                                          shape=(input_shape[1] - 1, self.units),
-                                          initializer=tf.random_normal_initializer(stddev=self.tau_0_inv),
+                                          shape=(input_shape[1] - NUM_CLASSES, self.units),
+                                          initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
                                           trainable=True)
         self.bias_rho = self.add_weight(name='bias_rho',
                                         shape=(self.units,),
-                                        initializer=tf.random_normal_initializer(stddev=self.tau_0_inv),
+                                        initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
                                         trainable=True)
+        self.gamma_mu = self.add_weight(name='gamma_mu',
+                                        shape=(self.num_groups,),
+                                        initializer=tf.random_normal_initializer(stddev=self.v),
+                                        trainable=True)
+        self.gamma_rho = self.add_weight(name='gamma_rho',
+                                         shape=(self.num_groups,),
+                                         initializer=tf.random_normal_initializer(stddev=self.v),
+                                         trainable=True)
         self.kernel_mu_g = []
         self.bias_mu_g = []
         self.kernel_rho_g = []
@@ -232,7 +258,7 @@ class DenseVariationalGrouped(tfkl.Layer):
             self.gamma_g.append(tfp.edward2.HalfNormal(scale=self.v))
             self.tau_g.append(tf.square(self.gamma_g[i]))
             self.kernel_mu_g.append(self.add_weight(name='kernel_mu_' + str(i),
-                                                    shape=(input_shape[1] - 1, self.units),
+                                                    shape=(input_shape[1] - NUM_CLASSES, self.units),
                                                     initializer=tf.constant_initializer(self.kernel_mu.numpy()),
                                                     trainable=True))
             self.bias_mu_g.append(self.add_weight(name='bias_mu_' + str(i),
@@ -240,7 +266,7 @@ class DenseVariationalGrouped(tfkl.Layer):
                                                   initializer=tf.constant_initializer(self.bias_mu.numpy()),
                                                   trainable=True))
             self.kernel_rho_g.append(self.add_weight(name='kernel_rho_' + str(i),
-                                                     shape=(input_shape[1] - 1, self.units),
+                                                     shape=(input_shape[1] - NUM_CLASSES, self.units),
                                                      initializer=tf.random_normal_initializer(self.tau_g[i]),
                                                      trainable=True))
             self.bias_rho_g.append(self.add_weight(name='bias_rho_' + str(i),
@@ -250,42 +276,71 @@ class DenseVariationalGrouped(tfkl.Layer):
         super().build(input_shape)
 
     def call(self, inputs, training=False, **kwargs):
-        imgs = inputs[:, :-1]
-        y_preds = tf.cast(inputs[:, -1], dtype=tf.int32)
+        imgs = inputs[:, : -NUM_CLASSES]
+        n = imgs.get_shape().as_list()[0]
+
+        y_preds = tf.cast(tf.math.argmax(inputs[:, -NUM_CLASSES - 1:-1], axis=1), dtype=tf.int32)
+        y_preds = TABLE.lookup(y_preds)  # get groups from classes
+
         kernel_sigma = tf.math.softplus(self.kernel_rho)
+
         loss = 0.0
+        # Monte-Carlo for loss
+        for step in range(self.num_sample):
+            kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
+            kernel_g = []
+            for i in range(self.num_groups):
+                kernel_sigma_g = tf.math.softplus(self.kernel_rho_g[i])
+                kernel_g.append(self.kernel_mu_g[i] + kernel_sigma_g * tf.random.normal(self.kernel_mu_g[i].shape))
+            bias_sigma = tf.math.softplus(self.bias_rho)
+            bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
+            bias_g = []
+            for i in range(self.num_groups):
+                bias_sigma_g = tf.math.softplus(self.bias_rho_g[i])
+                bias_g.append(self.bias_mu_g[i] + bias_sigma_g * tf.random.normal(self.bias_mu_g[i].shape))
+            gamma_sigma = tf.math.softplus(self.gamma_rho)
+            gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
+            tau_inv_g = tf.square(gamma_g)
+            if training:
+                # kernel
+                loss += self.kl_loss(kernel, self.kernel_mu, kernel_sigma, 0, self.tau_inv_0)
+                for i in range(self.num_groups):
+                    loss += self.kl_loss(kernel_g[i], self.kernel_mu_g[i], kernel_sigma_g[i], kernel, tau_inv_g[i])
+                # bias
+                loss += self.kl_loss(bias, self.bias_mu, bias_sigma, 0, self.tau_inv_0)
+                for i in range(self.num_groups):
+                    loss += self.kl_loss(bias_g[i], self.bias_mu_g[i], bias_sigma_g[i], bias, tau_inv_g[i])
+                # gamma
+                loss += self.kl_loss(gamma_g, self.gamma_mu, gamma_sigma, 0, self.v)
 
-        #for i in range(self.num_sample):
-        kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
-        kernel_g = []
-        for i in range(self.num_groups):
-            kernel_sigma_g = tf.math.softplus(self.kernel_rho_g[i])
-            kernel_g.append(self.kernel_mu_g[i] + kernel_sigma_g * tf.random.normal(self.kernel_mu_g[i].shape))
-        bias_sigma = tf.math.softplus(self.bias_rho)
-        bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
-        bias_g = []
-        for i in range(self.num_groups):
-            bias_sigma_g = tf.math.softplus(self.bias_rho_g[i])
-            bias_g.append(self.bias_mu_g[i] + bias_sigma_g * tf.random.normal(self.bias_mu_g[i].shape))
-
-        loss += self.kl_weight * self.log_prior_prob(kernel, kernel_g, self.gamma_g)
-        self.add_loss(loss / self.num_sample)
-
-        kernel_g_pred = tf.gather(kernel_g, y_preds)
-        bias_g_pred = tf.gather(bias_g, y_preds)
-
-        if training:
-            return self.activation(tfkb.dot(imgs, kernel) + bias)
-            for i in range(1):#np.shape(imgs)[0]):
-                if i == 0:
-                    a = 0 #self.activation(tfkb.dot(imgs[i], kernel_g[y_preds[i]]) + bias_g[y_preds[i]])
+            self.add_loss(loss / self.num_sample)
+            # print(loss / self.num_sample)
+            if training:
+                kernel_g_pred = tf.gather(kernel_g, y_preds, axis=0)
+                bias_g_pred = tf.gather(bias_g, y_preds, axis=0)
+                aux = tf.math.reduce_sum(self.activation(
+                                tf.tensordot(imgs, kernel_g_pred, [[1], [1]]) + bias_g_pred),
+                                axis=0) / self.num_sample
+                if step == 0:
+                    result = aux
                 else:
-                    a += 0 #self.activation(tfkb.dot(imgs[i], kernel_g[y_preds[i]]) + bias_g[y_preds[i]])
+                    result += aux
 
-        else:
-            return self.activation(tfkb.dot(imgs, kernel) + bias)
-        # self.add_loss(self.kl_loss(kernel, self.kernel_mu, kernel_sigma) +
-        #              self.kl_loss(bias, self.bias_mu, bias_sigma))
+            else:
+                result = self.activation(tfkb.dot(imgs, kernel) + bias)
+
+        return result
+
+
+    def kl_loss(self, w, mu_var, sigma_var, mu_prior, sigma_prior):
+        variational_dist = tfp.distributions.Normal(mu_var, sigma_var)
+        a = self.kl_weight * tfkb.sum(variational_dist.log_prob(w) - self.log_prior_prob(w, mu_prior, sigma_prior))
+        return a
+
+    def log_prior_prob(self, w, mu, sigma):
+        prior_dist = tfp.distributions.Normal(tf.zeros_like(w) + mu, tf.zeros_like(w) + sigma)
+        a = tf.math.reduce_sum(prior_dist.log_prob(w))
+        return a
 
     '''
     def loss(target_y, predicted_y):
@@ -300,73 +355,64 @@ class DenseVariationalGrouped(tfkl.Layer):
         model.b.assign_sub(learning_rate * db)
     '''
 
-    def kl_loss(self, w, w0, wg, mu, sigma):
-        variational_dist = tfp.distributions.Normal(mu, sigma)
-        return self.kl_weight * tfkb.sum(variational_dist.log_prob(w) - self.log_prior_prob(w0, wg))
 
-    def log_prior_prob(self, w0, wg, gamma_g):
-        w0_dist = tfp.distributions.Normal(tf.zeros_like(w0),
-                                           tf.zeros_like(w0) + self.tau_0_inv)
-        #b = int(self.num_groups)
-        #tau_g_root = tfp.edward2.HalfNormal(scale=self.v) # int(self.num_groups))#.value
-        #tau_g_root = tfp.distributions.Normal(tf.zeros(self.num_groups), self.v)  # .value
-        #tau_g_root = tau_g_root * tau_g_root
-        wg_dist = []
-        loss_g = 0.0
-        loss_tau_g = 0.0
-        for i in range(self.num_groups):
-            wg_dist.append(tfp.distributions.Normal(w0, tf.zeros_like(w0)))  # + tf.square(tau_g_root)))
-            loss_g += tf.math.reduce_sum(wg_dist[i].log_prob(wg[i]))
-
-            tau_g_distr = tfpd.Normal(loc=0, scale=self.v)
-            loss_tau_g += tf.math.reduce_sum(tau_g_distr.log_prob(2 * gamma_g[i]))
-
-        return tf.math.reduce_sum(w0_dist.log_prob(w0)) + loss_g + loss_tau_g
-
-
-#def neg_log_likelihood(y_obs, y_pred, sigma=1):
+# def neg_log_likelihood(y_obs, y_pred, sigma=1):
 #    dist = tfp.distributions.Normal(loc=y_pred, scale=sigma)
 #    return tfkb.sum(-dist.log_prob(y_obs))
 
 
 import warnings
 
+tf.compat.v1.enable_eager_execution()
+
 warnings.filterwarnings('ignore')
 
-
-#def f(x, sigma):
-#    epsilon = np.random.randn(*x.shape) * sigma
-#    return 10 * np.sin(2 * np.pi * (x)) + epsilon
-
-
 prior_params = {
-                "tau_0_inv": 100,
-                "v": 1,
-                "num_groups": 3,
-                }
+    "tau_inv_0": 100,
+    "v": 1,
+    "num_groups": 3,
+}
 
 train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
 
 train_seq = MNISTSequence(data=train_set, batch_size=args.batch,
                           preprocessing=False)
 
-input = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1] + 1,), name='img')
-output = DenseVariationalGrouped(NUM_CLASSES, 1/float(args.batch),
-                                 **prior_params)(input)
-model = tfk.Model(inputs=input, outputs=output)
-model.compile(loss='sparse_categorical_crossentropy',
+inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1] + NUM_CLASSES,), name='img')
+output = DenseVariationalGrouped(NUM_CLASSES, 1 / float(args.batch), activation="relu",
+                                 **prior_params)(inputs)
+model = tfk.Model(inputs=inputs, outputs=output)
+model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
               optimizer=tfk.optimizers.Adam(lr=args.lr),
               metrics=['mse']
-             )
-
+              )
+model.build(input_shape=[None, IMAGE_SHAPE[0] * IMAGE_SHAPE[1] + NUM_CLASSES])
+# x = train_seq.image
 x = np.array(train_seq.images)
-y = np.array(train_seq.labels, dtype=float)
-y = train_seq.labels
+# y = np.array(train_seq.labels, dtype=float)
+y = np.reshape(train_seq.labels, (-1, 1))
+# dataset = tf.data.Dataset.from_tensor_slices((x, y))
 print(model.summary())
-#y = train_seq.labels
-#model.evaluate(train.batch(BATCH_SIZE), steps=None, verbose=1)
-model.fit(x, y, epochs=args.epochs, batch_size=train_seq.batch_size)
-#model.predict(heldout_set.images)
+# y = train_seq.labels
+# model.evaluate(train.batch(BATCH_SIZE), steps=None, verbose=1)
+# model.fit(x, y, epochs=args.num_epochs, batch_size=train_seq.batch_size)
+print(' ... Training neural network')
+for epoch in range(args.num_epochs):
+    print('Epoch {}'.format(epoch))
+    epoch_accuracy, epoch_loss = [], []
+    for step, (batch_x, batch_y) in enumerate(train_seq):
+        batch_loss, batch_accuracy = model.train_on_batch(
+            batch_x, batch_y)
+        epoch_accuracy.append(batch_accuracy)
+        epoch_loss.append(batch_loss)
+
+        if step % 100 == 0:
+            print('Epoch: {}, Batch index: {}, '
+                  'Loss: {:.3f}, Accuracy: {:.3f}'.format(
+                epoch, step,
+                tf.reduce_mean(epoch_loss),
+                tf.reduce_mean(epoch_accuracy)))
+# model.predict(heldout_set.images)
 
 
 if 0:
