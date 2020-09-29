@@ -40,10 +40,13 @@ matplotlib.use('Agg')
 from matplotlib import figure  # pylint: disable=g-import-not-at-top
 from matplotlib.backends import backend_agg
 import numpy as np
-import tensorflow.compat.v2 as tf
+import tensorflow as tf
+
 import tensorflow_probability as tfp
 
-tf.enable_v2_behavior()
+from utils import gpu_session
+
+#tf.enable_v2_behavior()
 
 # TODO(b/78137893): Integration tests currently fail with seaborn imports.
 warnings.simplefilter(action='ignore')
@@ -66,7 +69,7 @@ flags.DEFINE_float('learning_rate',
                    default=0.001,
                    help='Initial learning rate.')
 flags.DEFINE_integer('num_epochs',
-                     default=10,
+                     default=5,
                      help='Number of training steps to run.')
 flags.DEFINE_integer('batch_size',
                      default=128,
@@ -180,33 +183,37 @@ def create_model():
     # and two fully connected dense layers. We use the Flipout
     # Monte Carlo estimator for these layers, which enables lower variance
     # stochastic gradients than naive reparameterization.
-    model = tf.keras.models.Sequential([
-        tfp.layers.Convolution2DFlipout(
-            6, kernel_size=5, padding='SAME',
-            kernel_divergence_fn=kl_divergence_function,
-            activation=tf.nn.relu),
-        tf.keras.layers.MaxPooling2D(
-            pool_size=[2, 2], strides=[2, 2],
-            padding='SAME'),
-        tfp.layers.Convolution2DFlipout(
-            16, kernel_size=5, padding='SAME',
-            kernel_divergence_fn=kl_divergence_function,
-            activation=tf.nn.relu),
-        tf.keras.layers.MaxPooling2D(
-            pool_size=[2, 2], strides=[2, 2],
-            padding='SAME'),
-        tfp.layers.Convolution2DFlipout(
-            120, kernel_size=5, padding='SAME',
-            kernel_divergence_fn=kl_divergence_function,
-            activation=tf.nn.relu),
-        tf.keras.layers.Flatten(),
-        tfp.layers.DenseFlipout(
-            84, kernel_divergence_fn=kl_divergence_function,
-            activation=tf.nn.relu),
-        tfp.layers.DenseFlipout(
-            NUM_CLASSES, kernel_divergence_fn=kl_divergence_function,
-            activation=tf.nn.softmax)
-    ])
+    if 0:
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.MaxPooling2D(
+                pool_size=[2, 2], strides=[2, 2],
+                padding='SAME'),
+            tfp.layers.Convolution2DFlipout(
+                16, kernel_size=5, padding='SAME',
+                kernel_divergence_fn=kl_divergence_function,
+                activation=tf.nn.relu),
+            tf.keras.layers.MaxPooling2D(
+                pool_size=[2, 2], strides=[2, 2],
+                padding='SAME'),
+            tfp.layers.Convolution2DFlipout(
+                120, kernel_size=5, padding='SAME',
+                kernel_divergence_fn=kl_divergence_function,
+                activation=tf.nn.relu),
+            tf.keras.layers.Flatten(),
+            tfp.layers.DenseFlipout(
+                84, kernel_divergence_fn=kl_divergence_function,
+                activation=tf.nn.relu),
+            tfp.layers.DenseFlipout(
+                NUM_CLASSES, kernel_divergence_fn=kl_divergence_function,
+                activation=tf.nn.softmax)
+        ])
+    else:
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(
+                NUM_CLASSES, #kernel_divergence_fn=kl_divergence_function,
+                activation=tf.nn.softmax),
+        ])
 
     # Model compilation.
     optimizer = tf.keras.optimizers.Adam(lr=FLAGS.learning_rate)
@@ -329,7 +336,7 @@ def main(argv):
                     tf.reduce_mean(epoch_loss),
                     tf.reduce_mean(epoch_accuracy)))
 
-            if (step + 1) % FLAGS.viz_steps == 0:
+            if ((step + 1) % FLAGS.viz_steps == 0) and 0:
                 # Compute log prob of heldout set by averaging draws from the model:
                 # p(heldout | train) = int_model p(heldout|model) p(model|train)
                 #                   ~= 1/n * sum_{i=1}^n p(heldout | model_i)
@@ -363,6 +370,22 @@ def main(argv):
                                             title='mean heldout logprob {:.2f}'
                                             .format(heldout_log_prob))
 
+        # Test
+
+        # Predict classes
+        predicted_classes = model.predict_classes(x=heldout_seq.images, batch_size=None, verbose=1)
+        print("Got predicted groups")
+
+        if len(heldout_seq.images):
+            # Calculate amount of correct predictions
+            labels_bin_dict = np.identity(10)
+            ind_correct = list(np.array_equal(heldout_seq.labels[i], labels_bin_dict[predicted_classes[i]])
+                               for i in range(len(predicted_classes)))
+            print(ind_correct)
+            true_now = np.count_nonzero(ind_correct)
+            number_now = len(ind_correct)
+            print('Accuracy: {}/{} = {}'.format(true_now, number_now, true_now / number_now))
 
 if __name__ == '__main__':
+    #gpu_session(1)  # num_gpus=1
     app.run(main)

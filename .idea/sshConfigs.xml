@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="isegpu2.inf.ethz.ch" id="a7064652-9633-4293-b84f-99b2e8a8c25b" port="22" nameFormat="DESCRIPTIVE" username="antonma" />
+      <sshConfig authType="PASSWORD" host="login.leonhard.ethz.ch" id="7eb498d9-c944-4824-8fc1-c132d0404188" port="22" nameFormat="DESCRIPTIVE" username="antonma" />
+    </configs>
+  </component>
+</project>

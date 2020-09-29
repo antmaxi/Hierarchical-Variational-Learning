@@ -1,0 +1,554 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="BRANCH:master" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </select>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="041d6522-dd82-40a2-b7fe-c4ccb098fd4c" name="Default Changelist" comment="Works">
+      <change afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/anton.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/other.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/rSettings.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/sshConfigs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/webServers.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/grouped_local.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/Hierarchical-Federated-Learning.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Hierarchical-Federated-Learning.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bayesian_neural_network.py" beforeDir="false" afterPath="$PROJECT_DIR$/bayesian_neural_network.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/grouped_last.py" beforeDir="false" afterPath="$PROJECT_DIR$/grouped_last.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/grouped_last_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/grouped_last_1.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/grouped_layer.py" beforeDir="false" afterPath="$PROJECT_DIR$/krasser.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/not_hierarchical_bayesian_neural_network.py" beforeDir="false" afterPath="$PROJECT_DIR$/not_hierarchical_bayesian_neural_network.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="JupyterTrust" id="5081f0b5-8e2c-4a88-8ae5-4a46c3cadd3b" />
+  <component name="ProjectId" id="1aMqAahPq4Sc5ITnjc0zV8layDs" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="com.intellij.ide.scratch.LRUPopupBuilder$1/New Scratch File" value="Python" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../tff_virtual" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RunManager" selected="Python.grouped_last_1">
+    <configuration name="grouped_last" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Hierarchical-Federated-Learning" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/grouped_last.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="grouped_last_1" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Hierarchical-Federated-Learning" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/grouped_last_1.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="grouped_local" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Hierarchical-Federated-Learning" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/grouped_local.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="krasser" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Hierarchical-Federated-Learning" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/krasser.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="not_hierarchical_bayesian_neural_network" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="Hierarchical-Federated-Learning" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/not_hierarchical_bayesian_neural_network.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.grouped_last_1" />
+        <item itemvalue="Python.grouped_local" />
+        <item itemvalue="Python.not_hierarchical_bayesian_neural_network" />
+        <item itemvalue="Python.grouped_last" />
+        <item itemvalue="Python.krasser" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="041d6522-dd82-40a2-b7fe-c4ccb098fd4c" name="Default Changelist" comment="" />
+      <created>1586555667959</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1586555667959</updated>
+      <workItem from="1586555669558" duration="989000" />
+      <workItem from="1586849968338" duration="23002000" />
+      <workItem from="1586932669318" duration="15868000" />
+      <workItem from="1587021199021" duration="10406000" />
+      <workItem from="1587109526414" duration="3910000" />
+      <workItem from="1587304670820" duration="1198000" />
+      <workItem from="1587370547503" duration="599000" />
+      <workItem from="1587456936601" duration="2422000" />
+      <workItem from="1587627503615" duration="5951000" />
+      <workItem from="1587713342725" duration="11832000" />
+      <workItem from="1587802394156" duration="599000" />
+      <workItem from="1587917609965" duration="15224000" />
+      <workItem from="1587974646875" duration="12016000" />
+      <workItem from="1588014578776" duration="2343000" />
+      <workItem from="1588056360007" duration="14974000" />
+      <workItem from="1588146480220" duration="3253000" />
+      <workItem from="1588232009258" duration="1200000" />
+      <workItem from="1588342916672" duration="613000" />
+      <workItem from="1588407859829" duration="605000" />
+      <workItem from="1588493771540" duration="1198000" />
+      <workItem from="1588577756037" duration="6048000" />
+      <workItem from="1588588769386" duration="3555000" />
+      <workItem from="1588669488811" duration="761000" />
+      <workItem from="1588752930772" duration="599000" />
+      <workItem from="1588842152434" duration="1273000" />
+      <workItem from="1588891139282" duration="600000" />
+      <workItem from="1588921513035" duration="606000" />
+      <workItem from="1589098497677" duration="599000" />
+      <workItem from="1589181415142" duration="599000" />
+      <workItem from="1589265819300" duration="1203000" />
+      <workItem from="1589367342117" duration="797000" />
+      <workItem from="1589440864492" duration="1208000" />
+      <workItem from="1589531630022" duration="620000" />
+      <workItem from="1589701441928" duration="599000" />
+      <workItem from="1589750102096" duration="46000" />
+      <workItem from="1589750162847" duration="72000" />
+      <workItem from="1589960721789" duration="1204000" />
+      <workItem from="1590396509615" duration="37000" />
+      <workItem from="1590568394111" duration="599000" />
+      <workItem from="1590652676945" duration="14000" />
+      <workItem from="1592578995888" duration="113000" />
+      <workItem from="1592820094175" duration="3164000" />
+      <workItem from="1594195621863" duration="1199000" />
+      <workItem from="1594278387668" duration="599000" />
+      <workItem from="1594539152943" duration="1853000" />
+      <workItem from="1594614922724" duration="637000" />
+      <workItem from="1594627417982" duration="3023000" />
+      <workItem from="1594661745056" duration="925000" />
+      <workItem from="1594712104877" duration="1950000" />
+      <workItem from="1594738797682" duration="1199000" />
+      <workItem from="1594802964144" duration="599000" />
+      <workItem from="1594880186950" duration="3321000" />
+      <workItem from="1594970982226" duration="2206000" />
+      <workItem from="1595089385311" duration="5737000" />
+      <workItem from="1595145257773" duration="599000" />
+      <workItem from="1595198069164" duration="599000" />
+      <workItem from="1595229619279" duration="3693000" />
+      <workItem from="1595265898119" duration="2626000" />
+      <workItem from="1595330890968" duration="599000" />
+      <workItem from="1595706576604" duration="973000" />
+      <workItem from="1595739311163" duration="599000" />
+      <workItem from="1595787779161" duration="599000" />
+      <workItem from="1595831858606" duration="1219000" />
+      <workItem from="1595914896669" duration="5444000" />
+      <workItem from="1596009015686" duration="6551000" />
+      <workItem from="1596087730080" duration="6549000" />
+      <workItem from="1596203046691" duration="599000" />
+      <workItem from="1596259469133" duration="1208000" />
+      <workItem from="1596382297764" duration="1257000" />
+      <workItem from="1596446235507" duration="9289000" />
+      <workItem from="1596521800915" duration="3429000" />
+      <workItem from="1596632875030" duration="599000" />
+      <workItem from="1596703369898" duration="599000" />
+      <workItem from="1596885258883" duration="599000" />
+      <workItem from="1597053985989" duration="599000" />
+      <workItem from="1597352090944" duration="1275000" />
+      <workItem from="1597386509341" duration="599000" />
+      <workItem from="1597482245822" duration="1212000" />
+      <workItem from="1597564691095" duration="1207000" />
+      <workItem from="1597752298318" duration="622000" />
+      <workItem from="1597910050378" duration="1214000" />
+      <workItem from="1597999264920" duration="1093000" />
+      <workItem from="1598083259485" duration="615000" />
+      <workItem from="1598171258892" duration="1505000" />
+      <workItem from="1598257658461" duration="3306000" />
+      <workItem from="1598360807716" duration="599000" />
+      <workItem from="1598693148304" duration="611000" />
+      <workItem from="1598774156490" duration="2789000" />
+      <workItem from="1598873150587" duration="1230000" />
+      <workItem from="1598952675104" duration="2962000" />
+      <workItem from="1599034788641" duration="4181000" />
+      <workItem from="1599122772418" duration="1258000" />
+      <workItem from="1599205798779" duration="1202000" />
+      <workItem from="1599299569621" duration="1203000" />
+      <workItem from="1599388450160" duration="3043000" />
+      <workItem from="1599469753820" duration="3895000" />
+      <workItem from="1599558897352" duration="20761000" />
+      <workItem from="1599640366990" duration="1756000" />
+      <workItem from="1599758416813" duration="599000" />
+      <workItem from="1599813077952" duration="1259000" />
+      <workItem from="1599900355847" duration="5556000" />
+      <workItem from="1599983818463" duration="5884000" />
+      <workItem from="1600068599849" duration="1930000" />
+      <workItem from="1600094931789" duration="2515000" />
+      <workItem from="1600155504087" duration="12368000" />
+      <workItem from="1600242971877" duration="1205000" />
+      <workItem from="1600332231919" duration="13996000" />
+      <workItem from="1600416761948" duration="2266000" />
+      <workItem from="1600500949110" duration="10347000" />
+      <workItem from="1600536485165" duration="12128000" />
+      <workItem from="1600590464479" duration="11653000" />
+      <workItem from="1600622507214" duration="6242000" />
+      <workItem from="1600676897593" duration="14913000" />
+      <workItem from="1600762026497" duration="12040000" />
+      <workItem from="1600780143291" duration="2914000" />
+      <workItem from="1600813111088" duration="2132000" />
+      <workItem from="1600857986328" duration="12095000" />
+      <workItem from="1600937206268" duration="15326000" />
+      <workItem from="1600973753482" duration="5276000" />
+      <workItem from="1601025025802" duration="39629000" />
+      <workItem from="1601150380410" duration="20679000" />
+      <workItem from="1601316595660" duration="2158000" />
+      <workItem from="1601326155320" duration="4813000" />
+      <workItem from="1601368613461" duration="5199000" />
+    </task>
+    <task id="LOCAL-00001" summary="Implemented hierarchical learning for MNIST">
+      <created>1586961123849</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1586961123849</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Non-hierarchical version for MNIST by LeCun et al.">
+      <created>1586962579650</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1586962579650</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Compiles at least">
+      <created>1600376503736</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1600376503736</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Written loss">
+      <created>1600382954905</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1600382954905</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Done call for training">
+      <created>1600548487935</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1600548487935</updated>
+    </task>
+    <task id="LOCAL-00006" summary="All implemented, but numerical instability (loss -&gt; nan)">
+      <created>1600779513485</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1600779513485</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Variational without groups">
+      <created>1601142590357</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1601142590358</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="2" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="master" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <ignored-roots>
+      <path value="$PROJECT_DIR$/r2d2" />
+    </ignored-roots>
+    <MESSAGE value="Implemented hierarchical learning for MNIST" />
+    <MESSAGE value="Non-hierarchical version for MNIST by LeCun et al." />
+    <MESSAGE value="Compiles at least" />
+    <MESSAGE value="Written loss" />
+    <MESSAGE value="Done call for training" />
+    <MESSAGE value="All implemented, but numerical instability (loss -&gt; nan)" />
+    <MESSAGE value="Variational without groups" />
+    <option name="LAST_COMMIT_MESSAGE" value="Variational without groups" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="575" y="39" width="1000" height="839" key="#Deployment" timestamp="1592842535086">
+      <screen x="67" y="34" width="1533" height="866" />
+    </state>
+    <state x="575" y="39" width="1000" height="839" key="#Deployment/67.34.1533.866@67.34.1533.866" timestamp="1592842535086" />
+    <state x="666" y="293" width="254" height="269" key="#Notifications" timestamp="1601324957357">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="666" y="293" width="254" height="269" key="#Notifications/67.27.1533.873@67.27.1533.873" timestamp="1601324957357" />
+    <state x="666" y="298" key="#Notifications/67.34.1533.866@67.34.1533.866" timestamp="1594972534963" />
+    <state x="329" y="27" width="999" height="873" key="CommitChangelistDialog2" timestamp="1601142610907">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="329" y="27" width="999" height="873" key="CommitChangelistDialog2/67.27.1533.873@67.27.1533.873" timestamp="1601142610907" />
+    <state width="961" height="526" key="DebuggerActiveHint" timestamp="1600516246330">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="961" height="526" key="DebuggerActiveHint/67.27.1533.873@67.27.1533.873" timestamp="1600516246330" />
+    <state x="558" y="160" width="424" height="484" key="FileChooserDialogImpl" timestamp="1600417845721">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="558" y="160" width="424" height="484" key="FileChooserDialogImpl/67.27.1533.873@67.27.1533.873" timestamp="1600417845721" />
+    <state x="558" y="166" width="530" height="598" key="FileChooserDialogImpl/67.34.1533.866@67.34.1533.866" timestamp="1592820324460" />
+    <state width="1159" height="257" key="GridCell.Tab.0.bottom" timestamp="1601373759219">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1159" height="257" key="GridCell.Tab.0.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601373759219" />
+    <state width="1473" height="207" key="GridCell.Tab.0.bottom/67.34.1533.866@67.34.1533.866" timestamp="1596489277562" />
+    <state width="1159" height="257" key="GridCell.Tab.0.center" timestamp="1601373759216">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1159" height="257" key="GridCell.Tab.0.center/67.27.1533.873@67.27.1533.873" timestamp="1601373759216" />
+    <state width="1473" height="207" key="GridCell.Tab.0.center/67.34.1533.866@67.34.1533.866" timestamp="1596489277561" />
+    <state width="1159" height="257" key="GridCell.Tab.0.left" timestamp="1601373759213">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1159" height="257" key="GridCell.Tab.0.left/67.27.1533.873@67.27.1533.873" timestamp="1601373759213" />
+    <state width="1473" height="207" key="GridCell.Tab.0.left/67.34.1533.866@67.34.1533.866" timestamp="1596489277560" />
+    <state width="1159" height="257" key="GridCell.Tab.0.right" timestamp="1601373759217">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1159" height="257" key="GridCell.Tab.0.right/67.27.1533.873@67.27.1533.873" timestamp="1601373759217" />
+    <state width="1473" height="207" key="GridCell.Tab.0.right/67.34.1533.866@67.34.1533.866" timestamp="1596489277562" />
+    <state width="1264" height="107" key="GridCell.Tab.1.bottom" timestamp="1601150189978">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1264" height="107" key="GridCell.Tab.1.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601150189978" />
+    <state width="1255" height="236" key="GridCell.Tab.1.bottom/67.34.1533.866@67.34.1533.866" timestamp="1595281222998" />
+    <state width="1264" height="107" key="GridCell.Tab.1.center" timestamp="1601150189977">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1264" height="107" key="GridCell.Tab.1.center/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1255" height="236" key="GridCell.Tab.1.center/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
+    <state width="1264" height="107" key="GridCell.Tab.1.left" timestamp="1601150189977">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1264" height="107" key="GridCell.Tab.1.left/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1255" height="236" key="GridCell.Tab.1.left/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
+    <state width="1264" height="107" key="GridCell.Tab.1.right" timestamp="1601150189977">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1264" height="107" key="GridCell.Tab.1.right/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1255" height="236" key="GridCell.Tab.1.right/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
+    <state x="190" y="27" width="1276" height="866" key="SettingsEditor" timestamp="1600890526909">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="190" y="27" key="SettingsEditor/67.27.1533.873@67.27.1533.873" timestamp="1600890526909" />
+    <state x="190" y="34" width="1276" height="866" key="SettingsEditor/67.34.1533.866@67.34.1533.866" timestamp="1596018773965" />
+    <state width="766" height="434" key="XDebugger.FullValuePopup" timestamp="1595271564029">
+      <screen x="67" y="34" width="1533" height="866" />
+    </state>
+    <state width="766" height="434" key="XDebugger.FullValuePopup/67.34.1533.866@67.34.1533.866" timestamp="1595271564029" />
+    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1601233985687">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/67.27.1533.873@67.27.1533.873" timestamp="1601233985687" />
+    <state x="597" y="376" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1600534439534">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="597" y="376" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/67.27.1533.873@67.27.1533.873" timestamp="1600534439534" />
+    <state x="170" y="199" width="1025" height="678" key="search.everywhere.popup" timestamp="1601289701035">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="170" y="199" width="1025" height="678" key="search.everywhere.popup/67.27.1533.873@67.27.1533.873" timestamp="1601289701035" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/krasser.py</url>
+          <line>77</line>
+          <option name="timeStamp" value="42" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/grouped_last.py</url>
+          <line>181</line>
+          <option name="timeStamp" value="44" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/grouped_last.py</url>
+          <line>578</line>
+          <option name="timeStamp" value="51" />
+        </line-breakpoint>
+      </breakpoints>
+      <default-breakpoints>
+        <breakpoint type="python-exception">
+          <properties notifyOnTerminate="true" exception="BaseException">
+            <option name="notifyOnTerminate" value="true" />
+          </properties>
+        </breakpoint>
+      </default-breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_layer.coverage" NAME="grouped_layer Coverage Results" MODIFIED="1596019684399" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last_1.coverage" NAME="grouped_last_1 Coverage Results" MODIFIED="1601373425197" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$training_utils.coverage" NAME="training_utils Coverage Results" MODIFIED="1587977860149" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/anaconda3/envs/tf/lib/python3.7/site-packages/tensorflow_core/python/keras/engine" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$not_hierarchical_bayesian_neural_network.coverage" NAME="not_hierarchical_bayesian_neural_network Coverage Results" MODIFIED="1601328249204" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$bayesian_neural_network.coverage" NAME="bayesian_neural_network Coverage Results" MODIFIED="1595271494072" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last.coverage" NAME="grouped_last Coverage Results" MODIFIED="1601287571148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$krasser.coverage" NAME="krasser Coverage Results" MODIFIED="1600863251583" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_local.coverage" NAME="grouped_local Coverage Results" MODIFIED="1601368959794" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+  </component>
+</project>

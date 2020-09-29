@@ -1,0 +1,52 @@
+Final results: 9412/10000 = 0.9412
+kl_divergence_function = (lambda q, p, _: tfd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
+                                                      tf.cast(input_size, dtype=tf.float32))
+            f = tfkl.Flatten()(inputs)
+            prior_0_distribution = tfpl.util.default_mean_field_normal_fn(
+                    loc_initializer=tf.zeros_initializer,
+                    untransformed_scale_initializer=
+                    tf.constant_initializer(tfp.math.softplus_inverse(tau_0_inv).numpy()))
+            x = tfpl.DenseFlipout(
+                output_size, kernel_divergence_fn=kl_divergence_function,
+                kernel_prior_fn=prior_0_distribution,
+                #bias_prior_fn=prior_0_distribution,
+                activation=tf.nn.softmax)
+            y = x(f)
+            w_0 = tfk.Model(inputs, y, name="W_0")
+            #w_0.compile(optimizer, loss='categorical_crossentropy',
+            #                      metrics=['accuracy'], experimental_run_tf_function=False)
+            w = tf.Variable(x.get_weights()[0])
+            b = tf.Variable(x.get_weights()[1])
+            # Get group weights variances
+            tau_g_inv= tf.square(tfp.edward2.HalfNormal(scale=v * tf.ones([NUM_GROUPS])))
+
+            # Per group networks
+            models = []
+            denses = []
+            w0 = W0_weights(weights=x.get_weights()[0])
+            #b = w0.weights
+            for i in range(NUM_GROUPS):
+                a = x.get_weights()[0]
+                c = tf.constant_initializer(w.numpy())
+                d = tf.zeros
+                kl_divergence_function_g = (lambda q, p, _: tfd.kl_divergence(q, p) /
+                                                          tf.cast(input_size[i], dtype=tf.float32))
+                prior_g_kernel_distribution = tfpl.util.default_mean_field_normal_fn(
+                                        loc_initializer=tf.constant_initializer(w.numpy()),
+                                        untransformed_scale_initializer=
+                                        tf.constant_initializer(tfp.math.softplus_inverse(tau_g_inv[i]).numpy()))
+                prior_g_bias_distribution = tfpl.util.default_mean_field_normal_fn(
+                                        loc_initializer=tf.zeros,#constant_initializer(b.numpy()),
+                                        untransformed_scale_initializer=
+                                        tf.constant_initializer(tfp.math.softplus_inverse(tau_g_inv[i]).numpy()))
+                denses.append(tfpl.DenseFlipout(
+                                output_size,
+                                kernel_divergence_fn=kl_divergence_function_g,
+                                kernel_prior_fn=prior_g_kernel_distribution,
+                                #bias_prior_fn=prior_g_bias_distribution,
+                                activation=tf.nn.softmax))
+                output = denses[i](f)
+                models.append(tfk.Model(inputs=inputs, outputs=output, name=f'dense_net_{i}'))
+                models[i].compile(optimizer, loss='categorical_crossentropy',
+                                  metrics=['accuracy'], experimental_run_tf_function=False)
+        return models, w_0, w

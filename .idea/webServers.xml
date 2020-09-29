@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="c07d4e28-63ce-4ea0-bad7-c8cde3f8ff4b" name="isegpu2" url="http://isegpu2.inf.ethz.ch">
+        <fileTransfer rootFolder="/local/home/antonma" accessType="SFTP" host="isegpu2.inf.ethz.ch" port="22" sshConfigId="a7064652-9633-4293-b84f-99b2e8a8c25b" sshConfig="antonma@isegpu2.inf.ethz.ch:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+      <webServer id="a55bc6a5-e565-4615-80b9-d30564d598c7" name="leonhard">
+        <fileTransfer rootFolder="/cluster/home/antonma" accessType="SFTP" host="login.leonhard.ethz.ch" port="22" sshConfigId="7eb498d9-c944-4824-8fc1-c132d0404188" sshConfig="antonma@login.leonhard.ethz.ch:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

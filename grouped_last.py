@@ -9,15 +9,18 @@ import os
 from utils import gpu_session
 from absl import app
 
+from pathlib import Path
 from datetime import datetime
-# from time import time
-# from tensorboard.python.keras.callbacks import TensorBoard
+import json
+import argparse
+
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-import argparse
-
 tf.compat.v1.disable_eager_execution()
+
+# log_dir = "/tmp/tfdbg2_logdir"
+# tf.debugging.experimental.enable_dump_debug_info(log_dir, tensor_debug_mode="FULL_TENSOR", circular_buffer_size=100)
 
 tfk = tf.keras
 tfkl = tf.keras.layers
@@ -31,6 +34,13 @@ NUM_TRAIN_EXAMPLES = 60000
 NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
+
+gpu = 0
+if gpu:
+    LOG_DIR = '/local/home/antonma/my_tf_logs_'
+else:
+    LOG_DIR = '/home/anton/my_tf_logs_'
+LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
                               2: 1, 5: 1,  # 1
@@ -52,16 +62,25 @@ TABLE = tf.lookup.StaticHashTable(
 )
 
 parser = argparse.ArgumentParser(description='Choose the type of execution.')
+parser.add_argument("--config_path",
+                    type=Path,
+                    help="Path to the main json config. "
+                         "Ex: 'configurations/femnist_virtual.json'",
+                    default='configurations/mnist_virtual.json')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
                     default=0.001)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
-                    default=5)
+                    default=200)
 parser.add_argument('--num_epochs_g', help='Number of training steps to run grouped inference.', type=int,
                     default=5)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=10)
+                    default=20)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
+
+parser.add_argument('--gpu', help="To run on GPU or not", type=int,
+                    default=0)
+
 parser.add_argument('--data_dir', help='Directory where data is stored (if using real data).',
                     default=os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
                                          'bayesian_neural_network/data'))
@@ -71,15 +90,9 @@ parser.add_argument('--model_dir', help="Directory to put the model's fit.",
 args = parser.parse_args()
 
 
-# integer = flags.DEFINE_integer('viz_steps', default=400, help='Frequency at which save visualizations.')
-# flags.DEFINE_integer('num_monte_carlo',
-#                     default=50,
-#                     help='Network draws to compute predictive probabilities.')
-# flags.DEFINE_bool('fake_data',
-#                  default=False,
-#                  help='If true, uses fake data. Defaults to real data.')
+def soft_inv(x):
+    return np.log(np.exp(x) - 1)
 
-# FLAGS = flags.FLAGS
 
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
@@ -175,7 +188,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return batch_x, batch_y
 
 
-def create_model(type="dens_one", output_size=NUM_CLASSES):
+def create_model(type="dens1", output_size=NUM_CLASSES):
     """Creates a Keras model using the LeNet-5 architecture.
     type: "dens1" or "lenet"
   Returns:
@@ -240,6 +253,7 @@ def train_model(model, train_seq, epochs=args.num_epochs, heldout_seq=((), ()), 
     """
     Trains LeNet model on MNIST data in a flexible to data way
 
+    :param epochs:
     :param model:
     :param train_seq:
     :param heldout_seq:
@@ -247,51 +261,54 @@ def train_model(model, train_seq, epochs=args.num_epochs, heldout_seq=((), ()), 
     :return: trained model
     """
 
-    print(' ... Training neural network')
-    for epoch in range(epochs):
-        print('Epoch {}'.format(epoch))
-        epoch_accuracy, epoch_loss = [], []
-        for step, (batch_x, batch_y) in enumerate(train_seq):
-            batch_loss, batch_accuracy = model.train_on_batch(
-                batch_x, batch_y)
-            epoch_accuracy.append(batch_accuracy)
-            epoch_loss.append(batch_loss)
+    tensorboard = tfk.callbacks.TensorBoard(
+        log_dir=LOG_DIR,
+        histogram_freq=0,
+        batch_size=args.batch,
+        write_graph=True,
+        write_grads=True
+    )
+    tensorboard.set_model(model)
 
-            if step % 100 == 0:
-                print('Epoch: {}, Batch index: {}, '
-                      'Loss: {:.3f}, Accuracy: {:.3f}'.format(
-                    epoch, step,
-                    batch_loss,
-                    batch_accuracy))
-                # tf.reduce_mean(),
-                # tf.reduce_mean()))
+    def named_logs(model, logs):
+        result = {}
+        for l in zip(model.metrics_names, logs):
+            result[l[0]] = l[1]
+        return result
+
     if 0:
-        training_history = model1.fit(
+        for epoch in range(epochs):
+            print('Epoch {}'.format(epoch))
+            epoch_accuracy, epoch_loss = [], []
+            for step, (batch_x, batch_y) in enumerate(train_seq):
+                logs = model.train_on_batch(
+                    batch_x, batch_y)
+                tensorboard.on_epoch_end(step, named_logs(model, logs))
+
+    else:
+        training_history = model.fit(
             train_seq.images,  # input
             train_seq.labels,  # output
-            batch_size=FLAGS.batch_size,
-            verbose=1,  # Suppress chatty output; use Tensorboard instead
-            epochs=FLAGS.num_epochs,
+            batch_size=args.batch,
+            verbose=1,
+            epochs=epochs,
             # validation_data=(x_test, y_test),
-            callbacks=[tensorboard_callback],
+            callbacks=[tensorboard],
         )
     return model
 
 
 class DenseVariationalGrouped(tfkl.Layer):
     def __init__(self,
-                 # input_size,
                  units,
                  kl_weight,
                  activation=None,
-                 tau_inv_0=1.0,
-                 v=1.0,
+                 tau_inv_0=None,
+                 v=None,
                  num_groups=NUM_GROUPS,
                  num_sample=args.num_sample,
                  **kwargs):
-        # self.input_size = input_size
         self.units = units
-        # self.shape = (input_size, units)
         self.kl_weight = kl_weight
         self.activation = tfk.activations.get(activation)
         self.tau_inv_0 = tau_inv_0
@@ -311,106 +328,84 @@ class DenseVariationalGrouped(tfkl.Layer):
         self.gamma_g = None
         self.gamma_mu = None
         self.gamma_rho = None
-        # np.sqrt(self.prior_pi_1 * self.prior_sigma_1 ** 2 +
-        #        self.prior_pi_2 * self.prior_sigma_2 ** 2)
-
+        self.k = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         super().__init__(**kwargs)
-
-    # def compute_output_shape(self, input_shape):
-    #    return input_shape[0], self.units
 
     def build(self, input_shape):
         print(input_shape)
 
-        softplus = tfp.bijectors.Softplus()
         self.kernel_mu = self.add_weight(name='kernel_mu',
                                          shape=(input_shape[1] - NUM_CLASSES, self.units),
-                                         initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
+                                         initializer=tf.constant_initializer(value=0),
                                          trainable=True)
         self.bias_mu = self.add_weight(name='bias_mu',
                                        shape=(self.units,),
-                                       initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
+                                       initializer=tf.constant_initializer(value=0),
                                        trainable=True)
         self.kernel_rho = self.add_weight(name='kernel_rho',
                                           shape=(input_shape[1] - NUM_CLASSES, self.units),
-                                          initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
+                                          initializer=tf.constant_initializer(value=soft_inv(self.tau_inv_0)),
                                           trainable=True)
         self.bias_rho = self.add_weight(name='bias_rho',
                                         shape=(self.units,),
-                                        initializer=tf.random_normal_initializer(
-                                                    stddev=self.tau_inv_0), #softplus.inverse(tf.convert_to_tensor(self.tau_inv_0, dtype=tf.float32))),
+                                        initializer=tf.constant_initializer(value=soft_inv(self.tau_inv_0)),
                                         trainable=True)
         self.gamma_mu = self.add_weight(name='gamma_mu',
                                         shape=(self.num_groups,),
-                                        initializer=tf.random_normal_initializer(stddev=self.v),
+                                        initializer=tf.constant_initializer(value=0),
                                         trainable=True)
         self.gamma_rho = self.add_weight(name='gamma_rho',
                                          shape=(self.num_groups,),
-                                         initializer=tf.random_normal_initializer(stddev=self.v),
+                                         initializer=tf.constant_initializer(value=soft_inv(self.v)),
                                          trainable=True)
         self.kernel_mu_g = []
         self.bias_mu_g = []
         self.kernel_rho_g = []
         self.bias_rho_g = []
-        self.tau_g = []
-        self.gamma_g = []
         for i in range(self.num_groups):
-            self.gamma_g.append(tfp.edward2.HalfNormal(scale=self.v))
-            self.tau_g.append(tf.square(self.gamma_g[i]))
             self.kernel_mu_g.append(self.add_weight(name='kernel_mu_' + str(i),
                                                     shape=(input_shape[1] - NUM_CLASSES, self.units),
-                                                    initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
-                                                    # tf.constant_initializer(self.kernel_mu.numpy()),
-                                                    # tf.random_normal_initializer(stddev=self.tau_inv_0),
+                                                    initializer=tf.constant_initializer(value=0),
                                                     trainable=True))
             self.bias_mu_g.append(self.add_weight(name='bias_mu_' + str(i),
                                                   shape=(self.units,),
-                                                  initializer=tf.random_normal_initializer(stddev=self.tau_inv_0),
-                                                  # tf.constant_initializer(self.bias_mu.numpy()),
-                                                  # tf.random_normal_initializer(stddev=self.tau_inv_0), #
+                                                  initializer=tf.constant_initializer(value=0),
                                                   trainable=True))
             self.kernel_rho_g.append(self.add_weight(name='kernel_rho_' + str(i),
                                                      shape=(input_shape[1] - NUM_CLASSES, self.units),
-                                                     initializer=tf.random_normal_initializer(stddev=self.tau_g[i]),
+                                                     initializer=tf.constant_initializer(value=soft_inv(self.tau_inv_0)),
                                                      trainable=True))
             self.bias_rho_g.append(self.add_weight(name='bias_rho_' + str(i),
                                                    shape=(self.units,),
-                                                   initializer=tf.random_normal_initializer(stddev=self.tau_g[i]),
+                                                   initializer=tf.constant_initializer(value=soft_inv(self.tau_inv_0)),
                                                    trainable=True))
         super().build(input_shape)
 
     def kl_loss(self, w, mu_var, sigma_var, mu_prior, sigma_prior):
         variational_dist = tfp.distributions.Normal(mu_var, sigma_var)
-        a = self.kl_weight * tfkb.sum(variational_dist.log_prob(w) - self.log_prior_prob(w, mu_prior, sigma_prior))
-        return a
+        return self.kl_weight * tfkb.sum(variational_dist.log_prob(w)
+                                         - self.log_prior_prob(w, mu_prior, sigma_prior)
+                                         )
 
     def log_prior_prob(self, w, mu, sigma):
         prior_dist = tfp.distributions.Normal(tf.zeros_like(w) + mu, tf.zeros_like(w) + sigma)
-        a = prior_dist.log_prob(w) # tf.math.reduce_sum(
-        return a
+        return prior_dist.log_prob(w)
 
     def call(self, inputs, training=False, **kwargs):
-
-        eps = 0#1e-5
+        eps = 0
 
         imgs = inputs[:, : -NUM_CLASSES]
-
-        y = inputs[:, -NUM_CLASSES - 1:-1]
+        y = inputs[:, -NUM_CLASSES:]
 
         y_preds = TABLE.lookup(tf.cast(tf.math.argmax(y, axis=1), dtype=tf.int32))  # get groups from classes
-
-        # y_grouped = tf.zeros_like(inputs[:, -NUM_CLASSES - 1:-1])  # batch x NUM_GROUPS  (q(z|x))
-        # y_grouped = tf.gather(kernel_g, y_preds, axis=0)  # batch x 784 x 10
-        # for j in range(NUM_CLASSES):
-        #    y_grouped[:, LABELS_CHANGE_DICT_GROUPED[j]] += y[:, j]
 
         kernel_sigma = tf.math.softplus(self.kernel_rho) + eps
         bias_sigma = tf.math.softplus(self.bias_rho) + eps
         print("???")
-        print(tfkb.get_value(self.bias_rho))
-        print(tfkb.get_value(self.kernel_rho))
-        print(tfkb.get_value(self.gamma_rho))
-        print(tfkb.get_value(bias_sigma))
+        # print(tfkb.get_value(self.bias_rho))
+        # print(tfkb.get_value(self.kernel_rho))
+        # print(tfkb.get_value(self.gamma_rho))
+        # print(tfkb.get_value(bias_sigma))
         kernel_sigma_g = []
         for i in range(self.num_groups):
             kernel_sigma_g.append(tf.math.softplus(self.kernel_rho_g[i]) + eps)
@@ -423,6 +418,9 @@ class DenseVariationalGrouped(tfkl.Layer):
         result = tf.zeros_like(tfkb.dot(imgs, self.kernel_mu))
         # Monte-Carlo for loss
         # TODO: is it possible not to calculate loss when predicting?
+
+        self.k.assign(0.0)
+        count = tf.constant(0.0)
         for step in range(self.num_sample):
             loss = 0.0
             kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
@@ -431,10 +429,21 @@ class DenseVariationalGrouped(tfkl.Layer):
             bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
             loss += self.kl_loss(bias, self.bias_mu, bias_sigma, 0, self.tau_inv_0)
 
+
+            # print(tfkb.get_value(bias_sigma_g))
+            # tau_inv_g = tf.ones_like(tau_inv_g)
+            # print(tfkb.get_value(tau_inv_g))
+
             gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
+            min_gamma = 1
+            # TODO: how to prevent NaNs in loss without clipping gamma?
+            #gamma_g = tf.clip_by_value(
+            #    gamma_g, min_gamma, 1000, name=None)
             loss += self.kl_loss(gamma_g, self.gamma_mu, gamma_sigma, 0, self.v)
 
             tau_inv_g = tf.square(gamma_g)
+
+            print(tfkb.get_value(tau_inv_g))
 
             kernel_g = []
             for i in range(self.num_groups):
@@ -445,35 +454,52 @@ class DenseVariationalGrouped(tfkl.Layer):
             for i in range(self.num_groups):
                 bias_g.append(self.bias_mu_g[i] + bias_sigma_g[i] * tf.random.normal(self.bias_mu_g[i].shape))
                 loss += self.kl_loss(bias_g[i], self.bias_mu_g[i], bias_sigma_g[i], bias, tau_inv_g[i])
-            print(loss)
+            # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
+            loss = tfkb.switch(tf.math.is_nan(loss), 0.0, loss)
+            def f(gamma_g, level):
+                return tf.reduce_all(tf.math.greater(tf.math.abs(gamma_g), level * tf.ones_like(gamma_g)))
+            loss = tfkb.switch(f(gamma_g, 0.1),
+                               loss, 0.0)
+            # doesn't work
+            self.k.assign(tfkb.switch(loss, tf.math.add(self.k, 1.0), tf.math.add(self.k, 0.0)))
+            #
+            #tfkb.switch(tf.math.is_nan(loss), tf.math.add(count, 0.0), tf.math.add(count, 1.0))
 
             self.add_loss(loss / self.num_sample)
-            # print(loss / self.num_sample)
-            ####################   OUTPUT   ###################
 
-            kernel_g_pred = tf.gather(kernel_g, y_preds, axis=0)  # batch x 784 x 10
-            bias_g_pred = tf.gather(bias_g, y_preds, axis=0)  # batch x 10
+            # if tf.math.is_nan(loss):
+            #    loss = 0.0
+            #    self.add_loss(0.0)
 
+            # else:
+            #    self.k.assign_add(1.0)
+
+            #self.add_loss(loss / self.num_sample)
+
+            kernel_g_pred = tf.gather(kernel_g, y_preds, axis=0)  # batch x 784 x units
+            bias_g_pred = tf.gather(bias_g, y_preds, axis=0)  # batch x units
             if training:  # and (not n is None):
                 # imgs - batch x 784
+                # TODO: more efficient this part?
                 d = tf.tensordot(imgs, kernel_g_pred, axes=[[1], [1]])
                 d = tf.transpose(d, perm=[2, 1, 0])
                 d = tf.linalg.diag_part(d)
                 d = tf.transpose(d, perm=[1, 0])
-                aux = self.activation(d + bias_g_pred) / self.num_sample
-                # print(aux)
-                result += aux
+                aux = (d + bias_g_pred)  # batch x units
             else:
-                # result = self.activation(tfkb.dot(imgs, kernel) + bias)
+                # result += self.activation(tfkb.dot(imgs, kernel) + bias) / self.num_sample
+                aux = tf.zeros_like(result)
                 for j in range(NUM_GROUPS):
-                    result += tf.math.multiply(tfkb.dot(imgs, kernel_g[j]) + bias_g[j],
+                    aux += tf.math.multiply(tfkb.dot(imgs, kernel_g[j]) + bias_g[j],
                                                tf.tile(tf.expand_dims(y[:, j], 1),
-                                                       tf.constant([1, NUM_CLASSES], tf.int32))
-                                               )
-                #    aux =
-                #    result += aux
-
-        return result
+                                                       tf.constant([1, self.units], tf.int32))
+                                            )
+            aux = tfkb.switch(tf.math.is_nan(loss), tf.zeros_like(result), aux)
+            aux = tfkb.switch(loss, aux, tf.zeros_like(result))
+            result += aux
+            #result += self.activation(tfkb.dot(imgs, kernel) + bias) / self.num_sample
+        return result / self.num_sample  # TODO: normalize to number of non-NaNs?
+        # #tfkb.switch(count > 0, y, tf.zeros_like(result))
 
 
 # def neg_log_likelihood(y_obs, y_pred, sigma=1):
@@ -486,13 +512,26 @@ import warnings
 
 def main(argv):
     warnings.filterwarnings('ignore')
+    # log_dir = "/local/home/antonma/HFL/tfdbg2_logdir"
+    # log_dir = "/tmp/tfdbg2_logdir"
+    if not gpu:
+        with args.config_path.absolute().open(mode='r') as config_file:
+            configs = json.load(config_file)
 
-    #tf.debugging.experimental.enable_dump_debug_info("/tmp/tfdbg2_logdir", tensor_debug_mode="FULL_HEALTH",
-    #    circular_buffer_size=-1)
+        current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        # Configs
+        data_set_conf = configs['data_set_conf']
+        training_conf = configs['training_conf']
+        model_conf = configs['model_conf']
+
+        all_params = {**data_set_conf,
+                      **training_conf,
+                      **model_conf, }
 
     prior_params = {
-        "tau_inv_0": 1.0,
-        "v": 1.0,
+        "tau_inv_0": 100.0,  # prior sigma of weights
+        "v": 10.0,  # prior sigma of gammas
         "num_groups": 3,
     }
 
@@ -502,24 +541,23 @@ def main(argv):
                               preprocessing=False)
 
     inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1] + NUM_CLASSES,), name='img')
-    output = DenseVariationalGrouped(NUM_CLASSES, 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch)), activation="relu",
-                                     **prior_params)(inputs)
+    kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
+    output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
+                                      activation="relu",
+                                      **prior_params)(inputs)
+    output = tf.keras.layers.Dense(NUM_CLASSES, activation=tf.nn.softmax)(output1)
     model = tfk.Model(inputs=inputs, outputs=output)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                   optimizer=tfk.optimizers.Adam(lr=args.lr),
-                  metrics=['mse']
+                  metrics=['accuracy']
                   )
     model.build(input_shape=[None, IMAGE_SHAPE[0] * IMAGE_SHAPE[1] + NUM_CLASSES])
-    # x = np.array(train_seq.images)
-    # y = np.reshape(train_seq.labels, (-1, 1))
     print(model.summary())
-    # model.evaluate(train.batch(BATCH_SIZE), steps=None, verbose=1)
-    # model.fit(x, y, epochs=args.num_epochs, batch_size=train_seq.batch_size)
+
     print(' ... Training main network')
     train_model(model, train_seq, epochs=args.num_epochs)
-
     # GROUP inference model
-    model_grouped = create_model(type="dens1", output_size=NUM_GROUPS)
+    model_grouped = create_model(type="lenet", output_size=NUM_GROUPS)
     train_seq_grouped = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
                                       labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
                                       preprocessing=True)
@@ -537,17 +575,13 @@ def main(argv):
     test_seq = MNISTSequence(images=heldout_set[0], labels=predicted_groups_probs, labels_to_binary=False,
                              batch_size=args.batch,
                              preprocessing=False)
-    result_prob = model.predict(test_seq[0])
+    result_prob = model.predict(test_seq.images)
     result_argmax = np.argmax(result_prob, axis=1)
     print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-
-    if 0:
-        def neg_log_likelihood(y_obs, y_pred, sigma=noise):
-            dist = tfp.distributions.Normal(loc=y_pred, scale=sigma)
-            return tfkb.sum(-dist.log_prob(y_obs))
-
+    print(0.1)
 
 
 if __name__ == '__main__':
-    #gpu_session(num_gpus=1)  #
+    if gpu:
+        gpu_session(num_gpus=1)  #
     app.run(main)
