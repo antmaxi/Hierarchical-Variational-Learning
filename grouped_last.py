@@ -21,8 +21,6 @@ tf.get_logger().setLevel('INFO')
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-# tf.compat.v1.disable_eager_execution()
-
 # log_dir = "/tmp/tfdbg2_logdir"
 # tf.debugging.experimental.enable_dump_debug_info(log_dir, tensor_debug_mode="FULL_TENSOR", circular_buffer_size=100)
 
@@ -37,7 +35,7 @@ IMAGE_SHAPE = [28, 28, 1]
 NUM_TRAIN_EXAMPLES = 60000
 NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
-NUM_GROUPS = 2
+NUM_GROUPS = 3
 
 gpu = 0
 if gpu:
@@ -45,10 +43,10 @@ if gpu:
 else:
     LOG_DIR = '/home/anton/my_tf_logs/my_tf_logs_'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
-
+# file_writer = tf.summary.FileWriter(LOG_DIR, sess.graph)
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
                               2: 1, 5: 1,  # 1
-                              1: 1, 4: 1, 7: 1, 9: 1}  # 2
+                              1: 2, 4: 2, 7: 2, 9: 2}  # 2
 
 LABELS_CHANGE_GROUPED = []  # (0, 2, 1, 0, ...)
 for i in range(NUM_CLASSES):
@@ -91,7 +89,7 @@ def soft_inv(x):
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
 
-    def __init__(self, images=None, labels=None,
+    def __init__(self, images=None, labels_int=None, labels_bin=None,
                  labels_to_binary=True, batch_size=args.batch,
                  used_labels=tuple(range(10)), labels_len=NUM_CLASSES,
                  labels_change=tuple(range(10)), preprocessing=False, fake_data_size=None):
@@ -108,11 +106,17 @@ class MNISTSequence(tf.keras.utils.Sequence):
                 num_images=fake_data_size, num_classes=NUM_CLASSES)
         if preprocessing:
             self.images, self.labels_int, self.labels_bin = MNISTSequence.__preprocessing(
-                images, labels, used_labels, labels_change, labels_len)
+                images, labels_int, used_labels, labels_change, labels_len)
         else:
             images = 2 * (images / 255.) - 1.
-            self.labels_bin = tf.keras.utils.to_categorical(labels)
-            self.labels_int = labels
+            if labels_bin is None:
+                self.labels_bin = tf.keras.utils.to_categorical(labels_int)
+            else:
+                self.labels_bin = labels_bin
+            if labels_int is None:
+                self.labels_int = np.argmax(labels_bin, axis=1)
+            else:
+                self.labels_int = labels_int
             self.images = np.array(
                 [images[i].flatten() for i in range(np.shape(images)[0])])
 
@@ -136,7 +140,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
                                          IMAGE_SHAPE[1]))
         labels_int = np.random.randint(low=0, high=num_classes,
                                        size=num_images)
-        return images, labels
+        return images, labels_int
 
     @staticmethod
     def __preprocessing(images, labels, used_labels, labels_change, labels_len):
@@ -183,7 +187,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return batch_x, batch_y
 
 
-def create_group_inference_model(type="dens1", output_size=NUM_CLASSES):
+def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASSES):
     """Creates a Keras model using the LeNet-5 architecture.
     type: "dens1" or "lenet"
   Returns:
@@ -199,7 +203,7 @@ def create_group_inference_model(type="dens1", output_size=NUM_CLASSES):
     # and two fully connected dense layers. We use the Flipout
     # Monte Carlo estimator for these layers, which enables lower variance
     # stochastic gradients than naive reparameterization.
-    if type == "lenet":
+    if net_type == "lenet":
         model = tf.keras.models.Sequential([
             tf.keras.layers.MaxPooling2D(
                 pool_size=[2, 2], strides=[2, 2],
@@ -223,7 +227,7 @@ def create_group_inference_model(type="dens1", output_size=NUM_CLASSES):
                 output_size, kernel_divergence_fn=kl_divergence_function,
                 activation=tf.nn.softmax)
         ])
-    elif type == "dens1":
+    elif net_type == "dens1":
         model = tf.keras.models.Sequential([
             tf.keras.layers.Flatten(),
             tfp.layers.DenseFlipout(
@@ -244,7 +248,7 @@ def create_group_inference_model(type="dens1", output_size=NUM_CLASSES):
     return model
 
 
-def train_model(model, train_seq, epochs=args.num_epochs, verbose=0, heldout_seq=((), ()), use_tensorboard=True):
+def train_model(model, inputs, outputs, epochs=args.num_epochs, validation_split=0.0, verbose=0, use_tensorboard=True):
     """
     Trains LeNet model on MNIST data in a flexible to data way
 
@@ -258,9 +262,10 @@ def train_model(model, train_seq, epochs=args.num_epochs, verbose=0, heldout_seq
     if use_tensorboard:
         tensorboard = tfk.callbacks.TensorBoard(
             log_dir=LOG_DIR,
-            histogram_freq=0,
+            histogram_freq=1,
             write_graph=True,
-            write_grads=True
+            write_grads=True,
+            update_freq='epoch'
         )
         tensorboard.set_model(model)
     else:
@@ -283,8 +288,8 @@ def train_model(model, train_seq, epochs=args.num_epochs, verbose=0, heldout_seq
 
     else:
         training_history = model.fit(
-            [train_seq.images, train_seq.labels_bin, train_seq.labels_int],  # input
-            train_seq.labels_bin,  # output
+            inputs,  # input
+            outputs,  # output
             validation_split=0.2,
             batch_size=args.batch,
             verbose=verbose,
@@ -420,20 +425,8 @@ class DenseVariationalGrouped(tfkl.Layer):
         for step in range(self.num_sample):
             loss = 0.0
             kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
-            if training:
-                loss += self.kl_loss(kernel, self.kernel_mu, kernel_sigma, 0, self.tau_inv_0)
-
             bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
-            loss += self.kl_loss(bias, self.bias_mu, bias_sigma, 0, self.tau_inv_0)
-
-            # print(tfkb.get_value(bias_sigma_g))
-            # tau_inv_g = tf.ones_like(tau_inv_g)
-            # print(tfkb.get_value(tau_inv_g))
-
             gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
-            # tf.print(gamma_g)
-            min_gamma = 1
-            loss += self.kl_loss(gamma_g, self.gamma_mu, gamma_sigma, 0, self.v)
 
             tau_inv_g = tf.square(gamma_g)
             # TODO: how to prevent NaNs in loss without clipping?
@@ -443,22 +436,23 @@ class DenseVariationalGrouped(tfkl.Layer):
             kernel_g = []
             for i in range(self.num_groups):
                 kernel_g.append(self.kernel_mu_g[i] + kernel_sigma_g[i] * tf.random.normal(self.kernel_mu_g[i].shape))
-                loss += self.kl_loss(kernel_g[i], self.kernel_mu_g[i], kernel_sigma_g[i], kernel, tau_inv_g[i])
-
             bias_g = []
             for i in range(self.num_groups):
                 bias_g.append(self.bias_mu_g[i] + bias_sigma_g[i] * tf.random.normal(self.bias_mu_g[i].shape))
-                loss += self.kl_loss(bias_g[i], self.bias_mu_g[i], bias_sigma_g[i], bias, tau_inv_g[i])
-            # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
-            # loss = tf.constant(1.0) / tf.constant(0.0)
-            loss = tfkb.switch(tf.math.is_nan(loss), 0.0, loss)
-            loss = tfkb.switch(tf.math.is_inf(loss), 0.0, loss)
-            loss = tf.where(tf.math.is_nan(loss), tf.zeros_like(loss), loss)
-            # def f(gamma_g, level):
-            #    return tf.reduce_all(tf.math.greater(tf.math.abs(gamma_g), level * tf.ones_like(gamma_g)))
 
-            # loss = tfkb.switch(f(gamma_g, 0.1),
-            #                   loss, 0.0)
+            # collect all losses
+            if training:
+                loss += self.kl_loss(kernel, self.kernel_mu, kernel_sigma, 0, self.tau_inv_0)
+                loss += self.kl_loss(bias, self.bias_mu, bias_sigma, 0, self.tau_inv_0)
+                loss += self.kl_loss(gamma_g, self.gamma_mu, gamma_sigma, 0, self.v)
+                for i in range(self.num_groups):
+                    loss += self.kl_loss(kernel_g[i], self.kernel_mu_g[i], kernel_sigma_g[i], kernel, tau_inv_g[i])
+                    loss += self.kl_loss(bias_g[i], self.bias_mu_g[i], bias_sigma_g[i], bias, tau_inv_g[i])
+                # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
+                # loss = tf.constant(1.0) / tf.constant(0.0)
+                loss = tfkb.switch(tf.math.is_nan(loss), 0.0, loss)
+                loss = tfkb.switch(tf.math.is_inf(loss), 0.0, loss)
+                loss = tf.where(tf.math.is_nan(loss), tf.zeros_like(loss), loss)
             # doesn't work
             # self.k.assign(tfkb.switch(loss, tf.math.add(self.k, 1.0), tf.math.add(self.k, 0.0)))
             #
@@ -466,15 +460,15 @@ class DenseVariationalGrouped(tfkl.Layer):
 
             self.add_loss(loss / self.num_sample)
 
-            train_summary_writer = tf.summary.create_file_writer(LOG_DIR)
-            tf.summary.histogram(
-                'gamma_rho',
-                self.gamma_rho,
-            )
-            tf.summary.histogram(
-                'gamma_mu',
-                self.gamma_mu,
-            )
+            # train_summary_writer = tf.summary.create_file_writer(LOG_DIR)
+            # tf.summary.histogram(
+            #    name='gamma_rho',
+            #    data=self.gamma_rho,
+            # )
+            # tf.summary.histogram(
+            #    name='gamma_mu',
+            #    data=self.gamma_mu,
+            # )
 
             if training:
                 kernel_g_pred = tf.gather(kernel_g, y_preds, axis=0)  # batch x 784 x units
@@ -510,17 +504,17 @@ def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prio
 
     kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch)) / 100
     # kl_weight = 0.0
-    output1 = DenseVariationalGrouped(100, kl_weight,
+    output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
                                       activation=None,
                                       num_sample=num_sample,
                                       **prior_params,
                                       clip=clip)(combined_input, training=training)
-    output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
-                                      activation="softmax",
-                                      num_sample=num_sample,
-                                      **prior_params,
-                                      clip=clip)([output1, input_logits, input_int], training=True)
-    model = tfk.Model(inputs=combined_input, outputs=output2)
+    # output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
+    #                                  activation="softmax",
+    #                                  num_sample=num_sample,
+    #                                  **prior_params,
+    #                                  clip=clip)([output1, input_logits, input_int], training=training)
+    model = tfk.Model(inputs=combined_input, outputs=output1)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                   optimizer=tfk.optimizers.Adam(lr=lr),
                   metrics=['accuracy'],
@@ -531,8 +525,7 @@ def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prio
 
 def main(argv):
     warnings.filterwarnings('ignore')
-    # log_dir = "/local/home/antonma/HFL/tfdbg2_logdir"
-    # log_dir = "/tmp/tfdbg2_logdir"
+    # tf.compat.v1.disable_eager_execution()
     if not gpu:
         with args.config_path.absolute().open(mode='r') as config_file:
             configs = json.load(config_file)
@@ -556,23 +549,23 @@ def main(argv):
 
     train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
 
-    train_seq = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
+    train_seq = MNISTSequence(images=train_set[0], labels_int=train_set[1], batch_size=args.batch,
                               preprocessing=False, labels_to_binary=False)
 
     # GROUP inference model
-    model_grouped = create_group_inference_model(type="lenet", output_size=NUM_GROUPS)
-    train_seq_grouped = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
+    model_grouped = create_compile_group_inference_model(net_type="lenet", output_size=NUM_GROUPS)
+    train_seq_grouped = MNISTSequence(images=train_set[0], labels_int=train_set[1], batch_size=args.batch,
                                       labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
                                       preprocessing=True)
     print(' ... Training group inference network')
     # train_model(model_grouped, train_seq_grouped, epochs=args.num_epochs_g)
-    epochs = 2
+    epochs = 10
     num_sample = 5
     pretrain = 0
     for t in (1e-0, 1e-1,):
-        for v in (1e-0, 1e-1,):
+        for v in (3e-1, 1e-2,):
             for lr in (1e-1, 1e-2, 1e-3):
-                for clip in (False,):
+                for clip in (True,):
                     prior_params["tau_inv_0"] = t
                     prior_params["v"] = v
 
@@ -581,7 +574,7 @@ def main(argv):
                                                                  training=True
                                                                  )
                     train_seq.labels_int = train_seq_grouped.labels_int
-                    if pretrain:
+                    if pretrain:  # for one layer only
                         model_dense = tfk.Sequential(
                             tfkl.Dense(NUM_CLASSES)
                         )
@@ -605,47 +598,55 @@ def main(argv):
                         model.set_weights(weights_initial)
 
                     print(' ... Training main network')
-                    train_model(model, train_seq, epochs=epochs, verbose=1, )
+                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
+                                train_seq.labels_bin,
+                                epochs=epochs, verbose=1, validation_split=0.1)
 
                     model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
                                                                          prior_params=prior_params,
                                                                          training=False
                                                                          )
                     model_predict.set_weights(model.get_weights())
-                    predicted_classes = model_predict.predict(
-                        x=[train_seq.images, train_seq.labels_bin, train_seq.labels_int],
-                        batch_size=None, verbose=1)
-                    print(clip, t, v, lr)
-                    result_argmax = np.argmax(predicted_classes, axis=1)
-                    print(sum(1 for x, y in zip(train_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-                    res = np.zeros_like(result_argmax)
-                    for i in range(len(result_argmax)):
-                        res[i] = result_argmax[i] + 1 if result_argmax[i] == train_set[1][i] else -result_argmax[i] - 1
-                    unique, counts = np.unique(res, return_counts=True)
-                    print(np.asarray((unique, counts)).T)
-                    ## Predict groups
-                    # heldout_seq_grouped = MNISTSequence(images=heldout_set[0], labels=heldout_set[1], batch_size=args.batch,
-                    #                                    labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
-                    #                                    preprocessing=True)
-                    # train_model(model_grouped, train_seq_grouped, epochs=args.num_epochs_g)
-                    # print(" ... Predicting groups")
-                    # predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None, verbose=1)
-                    # predicted_groups_probs = np.hstack((predicted_groups_probs,
-                    #                                    np.zeros((np.shape(predicted_groups_probs)[0],
-                    #                                              NUM_CLASSES - NUM_GROUPS))))
-                    ## images with appended
-                    # test_seq = MNISTSequence(images=heldout_set[0], labels=predicted_groups_probs, labels_to_binary=False,
-                    #                         batch_size=args.batch,
-                    #                         preprocessing=False)
-                    # result_prob = model.predict(test_seq.images)
-                    # result_argmax = np.argmax(result_prob, axis=1)
-                    # print(clip, t, v)
-                    # print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
+                    print(" ... Predicting")
+                    # predicted_classes = model_predict.predict(
+                    #    x=[train_seq.images, train_seq.labels_bin, train_seq.labels_int],
+                    #    batch_size=None, verbose=1)
+                    # print(clip, t, v, lr)
+                    # result_argmax = np.argmax(predicted_classes, axis=1)
+                    # print(sum(1 for x, y in zip(train_set[1], result_argmax) if x == y) / float(len(result_argmax)))
                     # res = np.zeros_like(result_argmax)
                     # for i in range(len(result_argmax)):
-                    #    res[i] = result_argmax[i] + 1 if result_argmax[i] == heldout_set[1][i] else -result_argmax[i] - 1
+                    #    res[i] = result_argmax[i] + 1 if result_argmax[i] == train_set[1][i] else -result_argmax[i] - 1
                     # unique, counts = np.unique(res, return_counts=True)
                     # print(np.asarray((unique, counts)).T)
+                    ## Predict groups
+                    heldout_seq_grouped = MNISTSequence(images=heldout_set[0], labels_int=heldout_set[1],
+                                                        batch_size=args.batch,
+                                                        labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
+                                                        preprocessing=True)
+                    train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
+                                epochs=args.num_epochs_g)
+                    print(" ... Predicting groups")
+                    predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
+                                                                   verbose=1)
+                    predicted_groups_probs = np.hstack((predicted_groups_probs,
+                                                        np.zeros((np.shape(predicted_groups_probs)[0],
+                                                                  NUM_CLASSES - NUM_GROUPS))))
+                    # images with appended
+                    test_seq = MNISTSequence(images=heldout_set[0], labels_bin=predicted_groups_probs,
+                                             labels_to_binary=False,
+                                             batch_size=args.batch,
+                                             preprocessing=False)
+                    result_prob = model.predict([test_seq.images, test_seq.labels_bin, test_seq.labels_int])
+                    result_argmax = np.argmax(result_prob, axis=1)
+                    print(clip, t, v)
+                    print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
+                    res = np.zeros_like(result_argmax)
+                    for i in range(len(result_argmax)):
+                        res[i] = result_argmax[i] + 1 if result_argmax[i] == heldout_set[1][i] else -result_argmax[
+                            i] - 1
+                    unique, counts = np.unique(res, return_counts=True)
+                    print(np.asarray((unique, counts)).T)
 
 
 if __name__ == '__main__':
