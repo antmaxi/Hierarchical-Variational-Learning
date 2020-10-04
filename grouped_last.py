@@ -43,6 +43,7 @@ if gpu:
 else:
     LOG_DIR = '/home/anton/my_tf_logs/my_tf_logs_'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
+
 # file_writer = tf.summary.FileWriter(LOG_DIR, sess.graph)
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
                               2: 1, 5: 1,  # 1
@@ -60,7 +61,7 @@ parser.add_argument("--config_path",
                          "Ex: 'configurations/femnist_virtual.json'",
                     default='configurations/mnist_virtual.json')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
-                    default=0.001)
+                    default=0.1)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
                     default=10)
 parser.add_argument('--num_epochs_g', help='Number of training steps to run grouped inference.', type=int,
@@ -187,7 +188,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return batch_x, batch_y
 
 
-def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASSES):
+def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASSES, lr=0.001):
     """Creates a Keras model using the LeNet-5 architecture.
     type: "dens1" or "lenet"
   Returns:
@@ -237,7 +238,7 @@ def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASS
     else:
         return -1
     # Model compilation.
-    optimizer = tf.keras.optimizers.Adam(lr=args.lr)
+    optimizer = tf.keras.optimizers.Adam(lr=lr)
     # We use the categorical_crossentropy loss since the MNIST dataset contains
     # ten labels. The Keras API will then automatically add the
     # Kullback-Leibler divergence (contained on the individual layers of
@@ -262,7 +263,7 @@ def train_model(model, inputs, outputs, epochs=args.num_epochs, validation_split
     if use_tensorboard:
         tensorboard = tfk.callbacks.TensorBoard(
             log_dir=LOG_DIR,
-            histogram_freq=1,
+            histogram_freq=0,
             write_graph=True,
             write_grads=True,
             update_freq='epoch'
@@ -290,7 +291,7 @@ def train_model(model, inputs, outputs, epochs=args.num_epochs, validation_split
         training_history = model.fit(
             inputs,  # input
             outputs,  # output
-            validation_split=0.2,
+            validation_split=validation_split,
             batch_size=args.batch,
             verbose=verbose,
             epochs=epochs,
@@ -305,10 +306,11 @@ class DenseVariationalGrouped(tfkl.Layer):
                  units,
                  kl_weight,
                  training=False,
-                 clip=False,
+                 clip=0.0,
                  activation=None,
                  tau_inv_0=None,
                  v=None,
+                 local_reparam=False,
                  num_groups=NUM_GROUPS,
                  num_sample=args.num_sample,
                  **kwargs):
@@ -318,6 +320,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         self.activation = tfk.activations.get(activation)
         self.tau_inv_0 = tau_inv_0
         self.v = v
+        self.local_reparam = local_reparam
         self.num_groups = num_groups
         self.num_sample = num_sample
         # Variational parameters
@@ -424,21 +427,40 @@ class DenseVariationalGrouped(tfkl.Layer):
         imgs = tf.expand_dims(imgs, axis=1)  # batch x 1 x 784
         for step in range(self.num_sample):
             loss = 0.0
-            kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
-            bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
-            gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
+
+            if self.local_reparam:
+                #loc = tf.matmul(inputs, self.kernel_posterior.distribution.loc),
+                #scale = tf.sqrt(tf.matmul(
+                #    tf.square(inputs),
+                #    tf.square(self.kernel_posterior.distribution.scale))
+                kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
+                bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
+                gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
+
+                kernel_g = []
+                for i in range(self.num_groups):
+                    kernel_g.append(
+                        self.kernel_mu_g[i] + kernel_sigma_g[i] * tf.random.normal(self.kernel_mu_g[i].shape))
+                bias_g = []
+                for i in range(self.num_groups):
+                    bias_g.append(self.bias_mu_g[i] + bias_sigma_g[i] * tf.random.normal(self.bias_mu_g[i].shape))
+            else:
+                kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
+                bias = self.bias_mu + bias_sigma * tf.random.normal(self.bias_mu.shape)
+                gamma_g = self.gamma_mu + gamma_sigma * tf.random.normal(self.gamma_mu.shape)
+
+                kernel_g = []
+                for i in range(self.num_groups):
+                    kernel_g.append(self.kernel_mu_g[i] + kernel_sigma_g[i] * tf.random.normal(self.kernel_mu_g[i].shape))
+                bias_g = []
+                for i in range(self.num_groups):
+                    bias_g.append(self.bias_mu_g[i] + bias_sigma_g[i] * tf.random.normal(self.bias_mu_g[i].shape))
 
             tau_inv_g = tf.square(gamma_g)
-            # TODO: how to prevent NaNs in loss without clipping?
-            if self.clip:
-                tau_inv_g = tf.clip_by_value(tau_inv_g, self.v * self.v / 1e2, 1e7)
 
-            kernel_g = []
-            for i in range(self.num_groups):
-                kernel_g.append(self.kernel_mu_g[i] + kernel_sigma_g[i] * tf.random.normal(self.kernel_mu_g[i].shape))
-            bias_g = []
-            for i in range(self.num_groups):
-                bias_g.append(self.bias_mu_g[i] + bias_sigma_g[i] * tf.random.normal(self.bias_mu_g[i].shape))
+            # TODO: how to prevent NaNs in loss without clipping?
+            if self.clip > 1e-8:
+                tau_inv_g = tf.clip_by_value(tau_inv_g, self.v * self.v / self.clip, 1e7)
 
             # collect all losses
             if training:
@@ -496,7 +518,7 @@ class DenseVariationalGrouped(tfkl.Layer):
 
 
 def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prior_params=None,
-                                         training=None):
+                                         training=None, local_reparam=False):
     input_img = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1],), name='img')
     input_logits = tfk.Input(shape=(NUM_CLASSES,), name='logits')
     input_int = tfk.Input(shape=(1,), name='int_class')
@@ -508,7 +530,9 @@ def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prio
                                       activation=None,
                                       num_sample=num_sample,
                                       **prior_params,
-                                      clip=clip)(combined_input, training=training)
+                                      clip=clip,
+                                      local_reparam=local_reparam
+                                      )(combined_input, training=training)
     # output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
     #                                  activation="softmax",
     #                                  num_sample=num_sample,
@@ -526,52 +550,80 @@ def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prio
 def main(argv):
     warnings.filterwarnings('ignore')
     # tf.compat.v1.disable_eager_execution()
-    if not gpu:
-        with args.config_path.absolute().open(mode='r') as config_file:
-            configs = json.load(config_file)
+    #if not gpu:
+    #    with args.config_path.absolute().open(mode='r') as config_file:
+    #        configs = json.load(config_file)
 
-        current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    #    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
 
-        # Configs
-        data_set_conf = configs['data_set_conf']
-        training_conf = configs['training_conf']
-        model_conf = configs['model_conf']
+    #    # Configs
+    #    data_set_conf = configs['data_set_conf']
+    #    training_conf = configs['training_conf']
+    #    model_conf = configs['model_conf']
 
-        all_params = {**data_set_conf,
-                      **training_conf,
-                      **model_conf, }
+    #    all_params = {**data_set_conf,
+    #                  **training_conf,
+    #                  **model_conf, }
 
     prior_params = {
-        "tau_inv_0": 1e-2,  # prior scale of weights dispersion around 0
-        "v": 1e-4,  # prior scale of group weights dispersion around main ones
+        "tau_inv_0": 1e-0,  # prior scale of weights dispersion around 0
+        "v": 3e-1,  # prior scale of group weights dispersion around main ones
         "num_groups": NUM_GROUPS,
     }
 
-    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
+    epochs = 1  # args.num_epochs
+    num_epochs_g = 1 # args.num_epochs_g
+    num_sample = 5
+    pretrain = 0
+    verbose = 1
 
+    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
+    #unique, counts = np.unique(heldout_set[1], return_counts=True)
+    #print("Distribution of correct/incorrect predictions (key - true label plus one")
+    #print(np.asarray((unique, counts)).T)
+    #for i in range(1000):
+    #    print(-heldout_set[1][i]-1)
     train_seq = MNISTSequence(images=train_set[0], labels_int=train_set[1], batch_size=args.batch,
                               preprocessing=False, labels_to_binary=False)
 
     # GROUP inference model
-    model_grouped = create_compile_group_inference_model(net_type="lenet", output_size=NUM_GROUPS)
+    model_grouped = create_compile_group_inference_model(net_type="lenet", output_size=NUM_GROUPS, lr=0.001)
     train_seq_grouped = MNISTSequence(images=train_set[0], labels_int=train_set[1], batch_size=args.batch,
                                       labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
                                       preprocessing=True)
-    print(' ... Training group inference network')
-    # train_model(model_grouped, train_seq_grouped, epochs=args.num_epochs_g)
-    epochs = 10
-    num_sample = 5
-    pretrain = 0
-    for t in (1e-0, 1e-1,):
-        for v in (3e-1, 1e-2,):
-            for lr in (1e-1, 1e-2, 1e-3):
-                for clip in (True,):
+
+    print(" ... Training group predicting network")
+    heldout_seq_grouped = MNISTSequence(images=heldout_set[0], labels_int=heldout_set[1],
+                                        batch_size=args.batch,
+                                        labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
+                                        preprocessing=True)
+    train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
+                epochs=num_epochs_g, validation_split=0.1, verbose=verbose)
+    print(" ... Predicting groups")
+    predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
+                                                   verbose=verbose)
+    predicted_groups_probs = np.hstack((predicted_groups_probs,
+                                        np.zeros((np.shape(predicted_groups_probs)[0],
+                                                  NUM_CLASSES - NUM_GROUPS))))
+    # images with appended predicted group probs
+    test_seq = MNISTSequence(images=heldout_set[0], labels_bin=predicted_groups_probs,
+                             labels_to_binary=False,
+                             batch_size=args.batch,
+                             preprocessing=False)
+
+    print(' ... Training class inference network')
+    for t in (1e-0,):# 1e-1,):
+        for v in (3e-1,):# 1e-2,):
+            for lr in (1e-1,):# 1e-2, 1e-3):
+                for clip in (100.0,):# 10.0, 1000.0, 0.0):
+                    print(clip, t, v, lr)
                     prior_params["tau_inv_0"] = t
                     prior_params["v"] = v
 
                     model = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
                                                                  prior_params=prior_params,
-                                                                 training=True
+                                                                 training=True,
+                                                                 local_reparam=True,
                                                                  )
                     train_seq.labels_int = train_seq_grouped.labels_int
                     if pretrain:  # for one layer only
@@ -583,7 +635,7 @@ def main(argv):
                                             metrics=['accuracy'],
                                             run_eagerly=True,
                                             )
-                        model_dense.fit(train_seq.images, train_seq.labels_bin, epochs=1, verbose=1)
+                        model_dense.fit(train_seq.images, train_seq.labels_bin, epochs=1, verbose=verbose)
                         weights_pretrained = model_dense.get_weights()
                         # print(model.summary())
                         weights_initial = model.get_weights()
@@ -596,56 +648,34 @@ def main(argv):
                         weights_initial[9] = weights_pretrained[1]
                         weights_initial[11] = weights_pretrained[1]
                         model.set_weights(weights_initial)
-
-                    print(' ... Training main network')
+                    if verbose:
+                        print(' ... Training main network')
                     train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
                                 train_seq.labels_bin,
-                                epochs=epochs, verbose=1, validation_split=0.1)
+                                epochs=epochs, verbose=verbose, validation_split=0.1)
 
+                    # create prediction model and transfer trained weights
                     model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
                                                                          prior_params=prior_params,
                                                                          training=False
                                                                          )
                     model_predict.set_weights(model.get_weights())
-                    print(" ... Predicting")
-                    # predicted_classes = model_predict.predict(
-                    #    x=[train_seq.images, train_seq.labels_bin, train_seq.labels_int],
-                    #    batch_size=None, verbose=1)
-                    # print(clip, t, v, lr)
-                    # result_argmax = np.argmax(predicted_classes, axis=1)
-                    # print(sum(1 for x, y in zip(train_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-                    # res = np.zeros_like(result_argmax)
-                    # for i in range(len(result_argmax)):
-                    #    res[i] = result_argmax[i] + 1 if result_argmax[i] == train_set[1][i] else -result_argmax[i] - 1
-                    # unique, counts = np.unique(res, return_counts=True)
-                    # print(np.asarray((unique, counts)).T)
-                    ## Predict groups
-                    heldout_seq_grouped = MNISTSequence(images=heldout_set[0], labels_int=heldout_set[1],
-                                                        batch_size=args.batch,
-                                                        labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
-                                                        preprocessing=True)
-                    train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
-                                epochs=args.num_epochs_g)
-                    print(" ... Predicting groups")
-                    predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
-                                                                   verbose=1)
-                    predicted_groups_probs = np.hstack((predicted_groups_probs,
-                                                        np.zeros((np.shape(predicted_groups_probs)[0],
-                                                                  NUM_CLASSES - NUM_GROUPS))))
-                    # images with appended
-                    test_seq = MNISTSequence(images=heldout_set[0], labels_bin=predicted_groups_probs,
-                                             labels_to_binary=False,
-                                             batch_size=args.batch,
-                                             preprocessing=False)
+                    if verbose:
+                        print(" ... Predicting classes")
+
+                    # predict final probabilities of classes
                     result_prob = model.predict([test_seq.images, test_seq.labels_bin, test_seq.labels_int])
                     result_argmax = np.argmax(result_prob, axis=1)
-                    print(clip, t, v)
+
+                    # print info
+                    print("Test accuracy:")
                     print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
                     res = np.zeros_like(result_argmax)
                     for i in range(len(result_argmax)):
-                        res[i] = result_argmax[i] + 1 if result_argmax[i] == heldout_set[1][i] else -result_argmax[
-                            i] - 1
+                        res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+                            else int(-1 - heldout_set[1][i])
                     unique, counts = np.unique(res, return_counts=True)
+                    print("Distribution of correct/incorrect predictions (key - true label plus one")
                     print(np.asarray((unique, counts)).T)
 
 
