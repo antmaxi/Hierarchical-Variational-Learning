@@ -37,7 +37,7 @@ NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
 
-gpu = 0
+gpu = 1
 if gpu:
     LOG_DIR = '/local/home/antonma/HFL/my_tf_logs_'
 else:
@@ -527,17 +527,17 @@ def create_compile_class_inference_model(num_sample=5, lr=0.01, clip=False, prio
     kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch)) / 100
     # kl_weight = 0.0
     output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
-                                      activation=None,
+                                      activation="relu",
                                       num_sample=num_sample,
                                       **prior_params,
                                       clip=clip,
                                       local_reparam=local_reparam
                                       )(combined_input, training=training)
-    # output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
-    #                                  activation="softmax",
-    #                                  num_sample=num_sample,
-    #                                  **prior_params,
-    #                                  clip=clip)([output1, input_logits, input_int], training=training)
+    #output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
+    #                                 activation="softmax",
+    #                                 num_sample=num_sample,
+    #                                 **prior_params,
+    #                                 clip=clip)([output1, input_logits, input_int], training=training)
     model = tfk.Model(inputs=combined_input, outputs=output1)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                   optimizer=tfk.optimizers.Adam(lr=lr),
@@ -571,8 +571,8 @@ def main(argv):
         "num_groups": NUM_GROUPS,
     }
 
-    epochs = 1  # args.num_epochs
-    num_epochs_g = 1 # args.num_epochs_g
+    epochs = 40 # args.num_epochs
+    num_epochs_g = 10 # args.num_epochs_g
     num_sample = 5
     pretrain = 0
     verbose = 1

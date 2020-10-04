@@ -74,7 +74,7 @@ parser.add_argument('--num_epochs', help='Number of training steps to run.', typ
 parser.add_argument('--num_epochs_g', help='Number of training steps to run grouped inference.', type=int,
                     default=3)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=50)
+                    default=5)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
 
@@ -476,10 +476,11 @@ def main(argv):
                                               tf.cast(NUM_TRAIN_EXAMPLES, dtype=tf.float32))
     model = tf.keras.Sequential([
         tf.keras.layers.Flatten(),
-        tfp.layers.DenseVariational(512, activation=tf.nn.relu,# kernel_divergence_fn=kl_divergence_function,
-                                    make_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
-                                    make_prior_fn=tfp.layers.default_mean_field_normal_fn()
-                                    ),
+        #tfp.layers.DenseVariational(512, activation=tf.nn.relu,# kernel_divergence_fn=kl_divergence_function,
+         #                           make_posterior_fn=tfp.layers.default_mean_field_normal_fn(),
+         #                           make_prior_fn=tfp.layers.default_mean_field_normal_fn()
+         #                           ),
+        tfp.layers.DenseLocalReparameterization(100, activation="relu", kernel_divergence_fn=kl_divergence_function),
         tfp.layers.DenseLocalReparameterization(10, activation="softmax", kernel_divergence_fn=kl_divergence_function,
 
         ),

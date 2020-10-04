@@ -26,21 +26,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="041d6522-dd82-40a2-b7fe-c4ccb098fd4c" name="Default Changelist" comment="Works">
-      <change afterPath="$PROJECT_DIR$/.idea/deployment.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dictionaries/anton.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/other.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/rSettings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/sshConfigs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/webServers.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/grouped_local.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Hierarchical-Federated-Learning.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Hierarchical-Federated-Learning.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bayesian_neural_network.py" beforeDir="false" afterPath="$PROJECT_DIR$/bayesian_neural_network.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/grouped_last.py" beforeDir="false" afterPath="$PROJECT_DIR$/grouped_last.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/grouped_last_1.py" beforeDir="false" afterPath="$PROJECT_DIR$/grouped_last_1.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/grouped_layer.py" beforeDir="false" afterPath="$PROJECT_DIR$/krasser.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/not_hierarchical_bayesian_neural_network.py" beforeDir="false" afterPath="$PROJECT_DIR$/not_hierarchical_bayesian_neural_network.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/grouped_local.py" beforeDir="false" afterPath="$PROJECT_DIR$/grouped_local.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tf.yml" beforeDir="false" afterPath="$PROJECT_DIR$/tf.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -80,7 +70,7 @@
     <property name="node.js.selected.package.tslint" value="(autodetect)" />
     <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
-  <component name="RunManager" selected="Python.grouped_last_1">
+  <component name="RunManager" selected="Python.grouped_last">
     <configuration name="grouped_last" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="Hierarchical-Federated-Learning" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -193,13 +183,16 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Python.grouped_last" />
         <item itemvalue="Python.grouped_last_1" />
         <item itemvalue="Python.grouped_local" />
         <item itemvalue="Python.not_hierarchical_bayesian_neural_network" />
-        <item itemvalue="Python.grouped_last" />
         <item itemvalue="Python.krasser" />
       </list>
     </recent_temporary>
+  </component>
+  <component name="StructureViewFactory">
+    <option name="ACTIVE_ACTIONS" value=",SHOW_FIELDS" />
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -334,7 +327,11 @@
       <workItem from="1601150380410" duration="20679000" />
       <workItem from="1601316595660" duration="2158000" />
       <workItem from="1601326155320" duration="4813000" />
-      <workItem from="1601368613461" duration="5199000" />
+      <workItem from="1601368613461" duration="53337000" />
+      <workItem from="1601581157933" duration="17632000" />
+      <workItem from="1601664401123" duration="11783000" />
+      <workItem from="1601719203093" duration="2260000" />
+      <workItem from="1601742154859" duration="26708000" />
     </task>
     <task id="LOCAL-00001" summary="Implemented hierarchical learning for MNIST">
       <created>1586961123849</created>
@@ -385,7 +382,56 @@
       <option name="project" value="LOCAL" />
       <updated>1601142590358</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Version without groups, doesn't work">
+      <created>1601373944574</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1601373944574</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Non-grouped custom variational, cleaned. Doesn't work">
+      <created>1601374479052</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1601374479053</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Updated grouped call">
+      <created>1601475992850</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1601475992850</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Temporarily removed &quot;training&quot; dependency, added pretraining">
+      <created>1601671314729</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1601671314729</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Fixed training=True/False issue by transferring weights to the new model">
+      <created>1601677035749</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1601677035749</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Trains!">
+      <created>1601759511001</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1601759511001</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Fixed lr for group model, now all works">
+      <created>1601820770634</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1601820770634</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -426,88 +472,103 @@
     <MESSAGE value="Done call for training" />
     <MESSAGE value="All implemented, but numerical instability (loss -&gt; nan)" />
     <MESSAGE value="Variational without groups" />
-    <option name="LAST_COMMIT_MESSAGE" value="Variational without groups" />
+    <MESSAGE value="Version without groups, doesn't work" />
+    <MESSAGE value="Non-grouped custom variational, cleaned. Doesn't work" />
+    <MESSAGE value="Updated grouped call" />
+    <MESSAGE value="Temporarily removed &quot;training&quot; dependency, added pretraining" />
+    <MESSAGE value="Fixed training=True/False issue by transferring weights to the new model" />
+    <MESSAGE value="Trains!" />
+    <MESSAGE value="Fixed lr for group model, now all works" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fixed lr for group model, now all works" />
   </component>
   <component name="WindowStateProjectService">
-    <state x="575" y="39" width="1000" height="839" key="#Deployment" timestamp="1592842535086">
-      <screen x="67" y="34" width="1533" height="866" />
+    <state x="575" y="32" width="800" height="677" key="#Deployment" timestamp="1601498371778">
+      <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state x="575" y="39" width="1000" height="839" key="#Deployment/67.34.1533.866@67.34.1533.866" timestamp="1592842535086" />
+    <state x="575" y="32" width="800" height="677" key="#Deployment/67.27.1533.873@67.27.1533.873" timestamp="1601498371778" />
     <state x="666" y="293" width="254" height="269" key="#Notifications" timestamp="1601324957357">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
     <state x="666" y="293" width="254" height="269" key="#Notifications/67.27.1533.873@67.27.1533.873" timestamp="1601324957357" />
     <state x="666" y="298" key="#Notifications/67.34.1533.866@67.34.1533.866" timestamp="1594972534963" />
-    <state x="329" y="27" width="999" height="873" key="CommitChangelistDialog2" timestamp="1601142610907">
+    <state x="554" y="27" width="832" height="704" key="#SSH_Configurations" timestamp="1601498370453">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state x="329" y="27" width="999" height="873" key="CommitChangelistDialog2/67.27.1533.873@67.27.1533.873" timestamp="1601142610907" />
-    <state width="961" height="526" key="DebuggerActiveHint" timestamp="1600516246330">
+    <state x="554" y="27" width="832" height="704" key="#SSH_Configurations/67.27.1533.873@67.27.1533.873" timestamp="1601498370453" />
+    <state x="351" y="144" width="948" height="600" key="CommitChangelistDialog2" timestamp="1601820770492">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="961" height="526" key="DebuggerActiveHint/67.27.1533.873@67.27.1533.873" timestamp="1600516246330" />
+    <state x="351" y="144" width="948" height="600" key="CommitChangelistDialog2/67.27.1533.873@67.27.1533.873" timestamp="1601820770492" />
+    <state width="1127" height="526" key="DebuggerActiveHint" timestamp="1601772221936">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state width="1127" height="526" key="DebuggerActiveHint/67.27.1533.873@67.27.1533.873" timestamp="1601772221936" />
     <state x="558" y="160" width="424" height="484" key="FileChooserDialogImpl" timestamp="1600417845721">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
     <state x="558" y="160" width="424" height="484" key="FileChooserDialogImpl/67.27.1533.873@67.27.1533.873" timestamp="1600417845721" />
-    <state x="558" y="166" width="530" height="598" key="FileChooserDialogImpl/67.34.1533.866@67.34.1533.866" timestamp="1592820324460" />
-    <state width="1159" height="257" key="GridCell.Tab.0.bottom" timestamp="1601373759219">
+    <state width="1487" height="316" key="GridCell.Tab.0.bottom" timestamp="1601827521615">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1159" height="257" key="GridCell.Tab.0.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601373759219" />
+    <state width="1487" height="316" key="GridCell.Tab.0.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601827521615" />
     <state width="1473" height="207" key="GridCell.Tab.0.bottom/67.34.1533.866@67.34.1533.866" timestamp="1596489277562" />
-    <state width="1159" height="257" key="GridCell.Tab.0.center" timestamp="1601373759216">
+    <state width="1487" height="316" key="GridCell.Tab.0.center" timestamp="1601827521615">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1159" height="257" key="GridCell.Tab.0.center/67.27.1533.873@67.27.1533.873" timestamp="1601373759216" />
+    <state width="1487" height="316" key="GridCell.Tab.0.center/67.27.1533.873@67.27.1533.873" timestamp="1601827521615" />
     <state width="1473" height="207" key="GridCell.Tab.0.center/67.34.1533.866@67.34.1533.866" timestamp="1596489277561" />
-    <state width="1159" height="257" key="GridCell.Tab.0.left" timestamp="1601373759213">
+    <state width="1487" height="316" key="GridCell.Tab.0.left" timestamp="1601827521614">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1159" height="257" key="GridCell.Tab.0.left/67.27.1533.873@67.27.1533.873" timestamp="1601373759213" />
+    <state width="1487" height="316" key="GridCell.Tab.0.left/67.27.1533.873@67.27.1533.873" timestamp="1601827521614" />
     <state width="1473" height="207" key="GridCell.Tab.0.left/67.34.1533.866@67.34.1533.866" timestamp="1596489277560" />
-    <state width="1159" height="257" key="GridCell.Tab.0.right" timestamp="1601373759217">
+    <state width="1487" height="316" key="GridCell.Tab.0.right" timestamp="1601827521615">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1159" height="257" key="GridCell.Tab.0.right/67.27.1533.873@67.27.1533.873" timestamp="1601373759217" />
+    <state width="1487" height="316" key="GridCell.Tab.0.right/67.27.1533.873@67.27.1533.873" timestamp="1601827521615" />
     <state width="1473" height="207" key="GridCell.Tab.0.right/67.34.1533.866@67.34.1533.866" timestamp="1596489277562" />
-    <state width="1264" height="107" key="GridCell.Tab.1.bottom" timestamp="1601150189978">
+    <state width="1487" height="277" key="GridCell.Tab.1.bottom" timestamp="1601813984820">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1264" height="107" key="GridCell.Tab.1.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601150189978" />
+    <state width="1487" height="277" key="GridCell.Tab.1.bottom/67.27.1533.873@67.27.1533.873" timestamp="1601813984820" />
     <state width="1255" height="236" key="GridCell.Tab.1.bottom/67.34.1533.866@67.34.1533.866" timestamp="1595281222998" />
-    <state width="1264" height="107" key="GridCell.Tab.1.center" timestamp="1601150189977">
+    <state width="1487" height="277" key="GridCell.Tab.1.center" timestamp="1601813984818">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1264" height="107" key="GridCell.Tab.1.center/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1487" height="277" key="GridCell.Tab.1.center/67.27.1533.873@67.27.1533.873" timestamp="1601813984818" />
     <state width="1255" height="236" key="GridCell.Tab.1.center/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
-    <state width="1264" height="107" key="GridCell.Tab.1.left" timestamp="1601150189977">
+    <state width="1487" height="277" key="GridCell.Tab.1.left" timestamp="1601813984817">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1264" height="107" key="GridCell.Tab.1.left/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1487" height="277" key="GridCell.Tab.1.left/67.27.1533.873@67.27.1533.873" timestamp="1601813984817" />
     <state width="1255" height="236" key="GridCell.Tab.1.left/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
-    <state width="1264" height="107" key="GridCell.Tab.1.right" timestamp="1601150189977">
+    <state width="1487" height="277" key="GridCell.Tab.1.right" timestamp="1601813984819">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state width="1264" height="107" key="GridCell.Tab.1.right/67.27.1533.873@67.27.1533.873" timestamp="1601150189977" />
+    <state width="1487" height="277" key="GridCell.Tab.1.right/67.27.1533.873@67.27.1533.873" timestamp="1601813984819" />
     <state width="1255" height="236" key="GridCell.Tab.1.right/67.34.1533.866@67.34.1533.866" timestamp="1595281222997" />
-    <state x="190" y="27" width="1276" height="866" key="SettingsEditor" timestamp="1600890526909">
+    <state x="190" y="27" width="1276" height="866" key="SettingsEditor" timestamp="1601415394608">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state x="190" y="27" key="SettingsEditor/67.27.1533.873@67.27.1533.873" timestamp="1600890526909" />
+    <state x="190" y="27" key="SettingsEditor/67.27.1533.873@67.27.1533.873" timestamp="1601415394608" />
     <state x="190" y="34" width="1276" height="866" key="SettingsEditor/67.34.1533.866@67.34.1533.866" timestamp="1596018773965" />
-    <state width="766" height="434" key="XDebugger.FullValuePopup" timestamp="1595271564029">
-      <screen x="67" y="34" width="1533" height="866" />
+    <state width="766" height="438" key="XDebugger.FullValuePopup" timestamp="1601656882744">
+      <screen x="67" y="27" width="1533" height="873" />
     </state>
+    <state width="766" height="438" key="XDebugger.FullValuePopup/67.27.1533.873@67.27.1533.873" timestamp="1601656882744" />
     <state width="766" height="434" key="XDebugger.FullValuePopup/67.34.1533.866@67.34.1533.866" timestamp="1595271564029" />
-    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1601233985687">
+    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1601589193677">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/67.27.1533.873@67.27.1533.873" timestamp="1601233985687" />
-    <state x="597" y="376" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1600534439534">
+    <state x="400" y="63" width="857" height="799" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/67.27.1533.873@67.27.1533.873" timestamp="1601589193677" />
+    <state x="597" y="376" width="463" height="172" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1601673860268">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
-    <state x="597" y="376" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/67.27.1533.873@67.27.1533.873" timestamp="1600534439534" />
+    <state x="597" y="376" width="463" height="172" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/67.27.1533.873@67.27.1533.873" timestamp="1601673860268" />
+    <state x="662" y="233" width="332" height="458" key="refactoring.ChangeSignatureDialog" timestamp="1601473023998">
+      <screen x="67" y="27" width="1533" height="873" />
+    </state>
+    <state x="662" y="233" width="332" height="458" key="refactoring.ChangeSignatureDialog/67.27.1533.873@67.27.1533.873" timestamp="1601473023998" />
     <state x="170" y="199" width="1025" height="678" key="search.everywhere.popup" timestamp="1601289701035">
       <screen x="67" y="27" width="1533" height="873" />
     </state>
@@ -522,14 +583,19 @@
           <option name="timeStamp" value="42" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/grouped_last.py</url>
-          <line>181</line>
-          <option name="timeStamp" value="44" />
+          <url>file://$PROJECT_DIR$/grouped_last_1.py</url>
+          <line>353</line>
+          <option name="timeStamp" value="52" />
         </line-breakpoint>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/grouped_last.py</url>
-          <line>578</line>
-          <option name="timeStamp" value="51" />
+          <line>638</line>
+          <option name="timeStamp" value="66" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/grouped_last.py</url>
+          <line>601</line>
+          <option name="timeStamp" value="75" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>
@@ -543,12 +609,12 @@
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_layer.coverage" NAME="grouped_layer Coverage Results" MODIFIED="1596019684399" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last_1.coverage" NAME="grouped_last_1 Coverage Results" MODIFIED="1601373425197" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last_1.coverage" NAME="grouped_last_1 Coverage Results" MODIFIED="1601473039573" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$training_utils.coverage" NAME="training_utils Coverage Results" MODIFIED="1587977860149" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$USER_HOME$/anaconda3/envs/tf/lib/python3.7/site-packages/tensorflow_core/python/keras/engine" />
     <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$not_hierarchical_bayesian_neural_network.coverage" NAME="not_hierarchical_bayesian_neural_network Coverage Results" MODIFIED="1601328249204" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$bayesian_neural_network.coverage" NAME="bayesian_neural_network Coverage Results" MODIFIED="1595271494072" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last.coverage" NAME="grouped_last Coverage Results" MODIFIED="1601287571148" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_last.coverage" NAME="grouped_last Coverage Results" MODIFIED="1601827521571" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$krasser.coverage" NAME="krasser Coverage Results" MODIFIED="1600863251583" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_local.coverage" NAME="grouped_local Coverage Results" MODIFIED="1601368959794" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hierarchical_Federated_Learning$grouped_local.coverage" NAME="grouped_local Coverage Results" MODIFIED="1601455448934" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

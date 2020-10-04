@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
 import math
 import os
@@ -37,9 +38,9 @@ NUM_GROUPS = 3
 
 gpu = 0
 if gpu:
-    LOG_DIR = '/local/home/antonma/my_tf_logs_'
+    LOG_DIR = '/local/home/antonma/HFL/logs/'
 else:
-    LOG_DIR = '/home/anton/my_tf_logs_'
+    LOG_DIR = '/home/anton/logs/'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 parser = argparse.ArgumentParser(description='Choose the type of execution.')
@@ -51,9 +52,9 @@ parser.add_argument("--config_path",
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
                     default=0.001)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
-                    default=2000)
+                    default=20)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=5)
+                    default=10)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
 
@@ -222,9 +223,6 @@ class DenseVariationalGrouped(tfkl.Layer):
                  kl_weight,
                  activation=None,
                  tau_inv_0=None,
-                 v=None,
-                 init_sigma_of_mu=None,
-                 init_rho=None,
                  num_groups=NUM_GROUPS,
                  num_sample=args.num_sample,
                  **kwargs):
@@ -232,9 +230,6 @@ class DenseVariationalGrouped(tfkl.Layer):
         self.kl_weight = kl_weight
         self.activation = tfk.activations.get(activation)
         self.tau_inv_0 = tau_inv_0
-        self.v = v
-        self.init_sigma_of_mu = init_sigma_of_mu
-        self.init_rho = init_rho
         self.num_groups = num_groups
         self.num_sample = num_sample
         # Variational parameters
@@ -245,7 +240,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         # self.k = tf.Variable(0.0, trainable=False, dtype=tf.float32)
         super().__init__(dynamic=False, **kwargs)
 
-    # def compute_output_shape(self, input_shape):
+    #def compute_output_shape(self, input_shape):
     #    return input_shape[0], self.units
 
     def build(self, input_shape):
@@ -308,8 +303,11 @@ class DenseVariationalGrouped(tfkl.Layer):
             # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
             # if tf.math.is_nan(loss):
             #    loss = 0.0
+            loss = 0.0
             self.add_loss(loss / self.num_sample)
             result += self.activation(tfkb.dot(imgs, kernel) + bias) / self.num_sample
+            tf.print(result)#, output_stream=sys.stderr)
+        #result = self.activation(tfkb.dot(imgs, self.kernel_mu) + bias)
         return result
 
 
@@ -320,7 +318,7 @@ def main(argv):
     warnings.filterwarnings('ignore')
 
     prior_params = {
-        "tau_inv_0": 100.0,  # prior sigma of weights
+        "tau_inv_0": 1e-5,  # prior sigma of weights
     }
     train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
     train_seq = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
@@ -329,20 +327,21 @@ def main(argv):
     inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
                               ), name='img')
     kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
+    #kl_weight = 1.0
     print(kl_weight)
-    output1 = DenseVariationalGrouped(100, kl_weight,
-                                      activation="relu",
-                                      **prior_params)(inputs)
+    #output1 = DenseVariationalGrouped(100, kl_weight,
+    #                                  activation="relu",
+    #                                  **prior_params)(inputs)
     output = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
                                      activation="softmax",
-                                     **prior_params)(output1)
+                                     **prior_params)(inputs)
     model = tfk.Model(inputs=inputs, outputs=output)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                   optimizer=tfk.optimizers.Adam(lr=args.lr),
                   metrics=['accuracy']
                   )
-    model.build(input_shape=[None, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]]
-                )
+    #model.build(input_shape=[None, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]]
+    #            )
     print(model.summary())
 
     print(' ... Training main network')
