@@ -20,9 +20,6 @@ import tensorflow_probability as tfp
 
 tf.compat.v1.disable_eager_execution()
 
-# log_dir = "/tmp/tfdbg2_logdir"
-# tf.debugging.experimental.enable_dump_debug_info(log_dir, tensor_debug_mode="FULL_TENSOR", circular_buffer_size=100)
-
 tfk = tf.keras
 tfkl = tf.keras.layers
 tfkb = tf.keras.backend
@@ -50,11 +47,11 @@ parser.add_argument("--config_path",
                          "Ex: 'configurations/femnist_virtual.json'",
                     default='configurations/mnist_virtual.json')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
-                    default=0.001)
+                    default=0.1)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
-                    default=20)
+                    default=100)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=10)
+                    default=5)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
 
@@ -281,7 +278,6 @@ class DenseVariationalGrouped(tfkl.Layer):
 
         kernel_sigma = tf.math.softplus(self.kernel_rho) + eps
         bias_sigma = tf.math.softplus(self.bias_rho) + eps
-        print("???")
         # print(tfkb.get_value(self.bias_rho))
         # print(tfkb.get_value(self.kernel_rho))
         # print(tfkb.get_value(self.gamma_rho))
@@ -318,7 +314,7 @@ def main(argv):
     warnings.filterwarnings('ignore')
 
     prior_params = {
-        "tau_inv_0": 1e-5,  # prior sigma of weights
+        "tau_inv_0": 1e-0,  # prior sigma of weights
     }
     train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
     train_seq = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
@@ -327,11 +323,6 @@ def main(argv):
     inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
                               ), name='img')
     kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
-    #kl_weight = 1.0
-    print(kl_weight)
-    #output1 = DenseVariationalGrouped(100, kl_weight,
-    #                                  activation="relu",
-    #                                  **prior_params)(inputs)
     output = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
                                      activation="softmax",
                                      **prior_params)(inputs)
@@ -340,12 +331,24 @@ def main(argv):
                   optimizer=tfk.optimizers.Adam(lr=args.lr),
                   metrics=['accuracy']
                   )
-    #model.build(input_shape=[None, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]]
-    #            )
     print(model.summary())
 
     print(' ... Training main network')
-    train_model(model, train_seq, epochs=args.num_epochs)
+
+    load_weights = 1
+    if load_weights:
+        weights = np.load("/home/anton/my_tf_logs/my_tf_logs_20201006-111439/weights.npy", allow_pickle=True)
+        w = model.get_weights()
+        # group (from 0 to NUM_GROUPS-1)
+        g = 0
+        off = 0
+        w[0] = weights[off + 4 * g + 0]
+        w[1] = weights[off + 4 * g + 1]
+        w[2] = weights[off + 4 * g + 2]
+        w[3] = weights[off + 4 * g + 3]
+        model.set_weights(w)
+    else:
+        train_model(model, train_seq, epochs=args.num_epochs)
 
     test_seq = MNISTSequence(images=heldout_set[0], labels=heldout_set[1], labels_to_binary=False,
                              batch_size=args.batch,
@@ -354,8 +357,18 @@ def main(argv):
     result_argmax = np.argmax(result_prob, axis=1)
 
     print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-    print(result_argmax)
-    print(heldout_set[1])
+    res = np.zeros_like(result_argmax)
+    for i in range(len(result_argmax)):
+        res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+            else int(-1 - heldout_set[1][i])
+    unique, counts = np.unique(res, return_counts=True)
+    d = dict(zip(unique, counts))
+    print("Distribution of correct/incorrect predictions (key - true label plus one")
+    print(np.asarray((unique, counts)).T)
+    all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
+    a_all = dict(zip(all_indices, all_counts))
+    rel_counts = np.array([d[i] / a_all[abs(i)-1] for i in unique])
+    print(np.asarray((unique, rel_counts)).T)
 
 
 if __name__ == '__main__':
