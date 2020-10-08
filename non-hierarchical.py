@@ -10,6 +10,8 @@ import os
 from utils import gpu_session
 from absl import app
 
+import matplotlib.pyplot as plt
+
 from pathlib import Path
 from datetime import datetime
 import json
@@ -33,21 +35,16 @@ NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
 
-gpu = 0
+gpu = 1
 if gpu:
-    LOG_DIR = '/local/home/antonma/HFL/logs/'
+    LOG_DIR = '/local/home/antonma/HFL/my_tf_logs/my_tf_logs_gpu_non_'
 else:
-    LOG_DIR = '/home/anton/logs/'
+    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results/my_tf_logs/my_tf_logs_non_'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 parser = argparse.ArgumentParser(description='Choose the type of execution.')
-parser.add_argument("--config_path",
-                    type=Path,
-                    help="Path to the main json config. "
-                         "Ex: 'configurations/femnist_virtual.json'",
-                    default='configurations/mnist_virtual.json')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
-                    default=0.1)
+                    default=0.001)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
                     default=100)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
@@ -70,6 +67,23 @@ args = parser.parse_args()
 def soft_inv(x):
     return np.log(np.exp(x) - 1)
 
+def get_shuffled_mnist(filename):
+    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path=filename)
+    # permute labels
+    imgs_all = np.concatenate((train_set[0], heldout_set[0]), axis=0)
+    imgs_all = imgs_all.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
+    labels_all = np.concatenate((train_set[1], heldout_set[1]), axis=0)
+    labels_all = np.expand_dims(labels_all, axis=1)
+    all_data = np.concatenate((imgs_all, labels_all), axis=1)
+    np.random.shuffle(all_data)
+    imgs_all = all_data[:, :-1]
+    labels_all = all_data[:, -1:]
+    train_set = (imgs_all[0:NUM_TRAIN_EXAMPLES, :],
+                 labels_all[0:NUM_TRAIN_EXAMPLES, :])
+    heldout_set = (imgs_all[NUM_TRAIN_EXAMPLES:, :],
+                    labels_all[NUM_TRAIN_EXAMPLES:, :])
+
+    return train_set, heldout_set
 
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
@@ -165,7 +179,8 @@ class MNISTSequence(tf.keras.utils.Sequence):
         return batch_x, batch_y
 
 
-def train_model(model, train_seq, epochs=args.num_epochs, heldout_seq=((), ()), tensorboard_callback=None):
+def train_model(model, train_seq, epochs=args.num_epochs,
+                validation_data=None, validation_split=0.0, tensorboard_callback=None):
     """
     Trains LeNet model on MNIST data in a flexible to data way
 
@@ -182,17 +197,23 @@ def train_model(model, train_seq, epochs=args.num_epochs, heldout_seq=((), ()), 
         histogram_freq=0,
         batch_size=args.batch,
         write_graph=True,
-        write_grads=True
+        write_grads=True,
+        update_freq='epoch'
     )
     tensorboard.set_model(model)
 
-    def named_logs(model, logs):
-        result = {}
-        for l in zip(model.metrics_names, logs):
-            result[l[0]] = l[1]
-        return result
+    #earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+    #mcp_save = tf.keras.callbacks.ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+    #reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(
+    #    monitor='val_loss', factor=0.1, patience=7, verbose=1,epsilon=1e-4, mode='min')
 
     if 0:
+        def named_logs(model, logs):
+            result = {}
+            for l in zip(model.metrics_names, logs):
+                result[l[0]] = l[1]
+            return result
+
         for epoch in range(epochs):
             print('Epoch {}'.format(epoch))
             epoch_accuracy, epoch_loss = [], []
@@ -202,19 +223,38 @@ def train_model(model, train_seq, epochs=args.num_epochs, heldout_seq=((), ()), 
                 tensorboard.on_epoch_end(step, named_logs(model, logs))
 
     else:
-        training_history = model.fit(
-            train_seq.images,  # input
-            train_seq.labels,  # output
-            batch_size=args.batch,
-            verbose=1,
-            epochs=epochs,
-            # validation_data=(x_test, y_test),
-            callbacks=[tensorboard],
-        )
+        if validation_data is None:
+            training_history = model.fit(
+                train_seq.images,  # input
+                train_seq.labels,  # output
+                batch_size=args.batch,
+                verbose=1,
+                epochs=epochs,
+                validation_split=validation_split,
+                callbacks=[tensorboard,
+                           #earlyStopping,
+                           #mcp_save,
+                           #reduce_lr_loss
+                           ],
+            )
+        else:
+            training_history = model.fit(
+                train_seq.images,  # input
+                train_seq.labels,  # output
+                batch_size=args.batch,
+                verbose=1,
+                epochs=epochs,
+                validation_data=validation_data,
+                callbacks=[tensorboard,
+                           #earlyStopping,
+                           #mcp_save,
+                           #reduce_lr_loss
+                           ],
+            )
     return model
 
 
-class DenseVariationalGrouped(tfkl.Layer):
+class DenseVariationalNotGrouped(tfkl.Layer):
     def __init__(self,
                  units,
                  kl_weight,
@@ -288,6 +328,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         # TODO: is it possible not to calculate loss when predicting?
 
         # self.k.assign(0.0)
+        elbo = tf.zeros(1, dtype=tf.float32)
         for step in range(self.num_sample):
             loss = 0.0
             kernel = self.kernel_mu + kernel_sigma * tf.random.normal(self.kernel_mu.shape)
@@ -299,10 +340,13 @@ class DenseVariationalGrouped(tfkl.Layer):
             # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
             # if tf.math.is_nan(loss):
             #    loss = 0.0
-            loss = 0.0
             self.add_loss(loss / self.num_sample)
+            elbo += loss
+            # TODO: save ELBO
+
             result += self.activation(tfkb.dot(imgs, kernel) + bias) / self.num_sample
             tf.print(result)#, output_stream=sys.stderr)
+        #tf.summary.scalar(elbo, "ELBO")
         #result = self.activation(tfkb.dot(imgs, self.kernel_mu) + bias)
         return result
 
@@ -312,63 +356,131 @@ import warnings
 
 def main(argv):
     warnings.filterwarnings('ignore')
+    #tf.summary.trace_on()
+    #print(tf.executing_eagerly())
 
     prior_params = {
-        "tau_inv_0": 1e-0,  # prior sigma of weights
+        "tau_inv_0": 1e-2,  # prior sigma of weights
     }
-    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
+    train_set, heldout_set = get_shuffled_mnist('mnist.npz')
+
     train_seq = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
                               preprocessing=False)
 
     inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
                               ), name='img')
     kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
-    output = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
-                                     activation="softmax",
-                                     **prior_params)(inputs)
+    output = DenseVariationalNotGrouped(NUM_CLASSES, kl_weight,
+                                        activation="softmax",
+                                        **prior_params)(inputs)
     model = tfk.Model(inputs=inputs, outputs=output)
     model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
                   optimizer=tfk.optimizers.Adam(lr=args.lr),
-                  metrics=['accuracy']
+                  metrics=['accuracy'],
+                  #run_eagerly=True,
                   )
     print(model.summary())
 
     print(' ... Training main network')
-
-    load_weights = 1
-    if load_weights:
-        weights = np.load("/home/anton/my_tf_logs/my_tf_logs_20201006-111439/weights.npy", allow_pickle=True)
-        w = model.get_weights()
-        # group (from 0 to NUM_GROUPS-1)
-        g = 0
-        off = 0
-        w[0] = weights[off + 4 * g + 0]
-        w[1] = weights[off + 4 * g + 1]
-        w[2] = weights[off + 4 * g + 2]
-        w[3] = weights[off + 4 * g + 3]
-        model.set_weights(w)
-    else:
-        train_model(model, train_seq, epochs=args.num_epochs)
+    epochs = 500  # args.num_epochs
+    rel_counts = []
+    uniques = []
 
     test_seq = MNISTSequence(images=heldout_set[0], labels=heldout_set[1], labels_to_binary=False,
                              batch_size=args.batch,
                              preprocessing=False)
-    result_prob = model.predict(test_seq.images)
-    result_argmax = np.argmax(result_prob, axis=1)
 
-    print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-    res = np.zeros_like(result_argmax)
-    for i in range(len(result_argmax)):
-        res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
-            else int(-1 - heldout_set[1][i])
-    unique, counts = np.unique(res, return_counts=True)
-    d = dict(zip(unique, counts))
-    print("Distribution of correct/incorrect predictions (key - true label plus one")
-    print(np.asarray((unique, counts)).T)
-    all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
-    a_all = dict(zip(all_indices, all_counts))
-    rel_counts = np.array([d[i] / a_all[abs(i)-1] for i in unique])
-    print(np.asarray((unique, rel_counts)).T)
+    load_weights = 0  # to use trained model or to train
+    # group (from 0 to NUM_GROUPS-1)
+    if load_weights:
+        trained_epochs = 100
+        for g in range(NUM_GROUPS+1):
+                if trained_epochs == 10:
+                    name = "my_tf_logs_20201006-192650"
+                elif trained_epochs == 100:
+                    name = "my_tf_logs_20201006-194905"
+                else:
+                    return -1
+                weights = np.load("/home/anton/my_tf_logs/" + name + "/weights.npy", allow_pickle=True)
+                w = model.get_weights()
+                if g == NUM_GROUPS:
+                    off = 0
+                else:
+                    off = 6  # 6 for groups, 0 for main weights change
+                w[0] = weights[off + 4 * g + 0]
+                w[1] = weights[off + 4 * g + 1]
+                w[2] = weights[off + 4 * g + 2]
+                w[3] = weights[off + 4 * g + 3]
+                model.set_weights(w)
+
+
+                result_prob = model.predict(test_seq.images)
+                result_argmax = np.argmax(result_prob, axis=1)
+
+                print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
+                res = np.zeros_like(result_argmax)
+                for i in range(len(result_argmax)):
+                    res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+                        else int(-1 - heldout_set[1][i])
+                unique, counts = np.unique(res, return_counts=True)
+                uniques.append(unique.astype(int))
+                d = dict(zip(unique, counts))
+                print("Distribution of correct/incorrect predictions (key - true label plus one")
+                print(np.asarray((unique, counts)).T)
+                all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
+                a_all = dict(zip(all_indices, all_counts))
+                rel_counts.append(np.array([d[i] / a_all[abs(i) - 1] for i in unique]))
+                print(np.asarray((unique, rel_counts[g])).T)
+        fig, (ax0, ax1, ax2, ax3) = plt.subplots(1, 4, figsize=(8, 3))
+        # fig.suptitle()
+        # Accuracy of prediction depending on the true label for different types of weights
+        ax0.bar(uniques[3][10:], rel_counts[3][10:])  # , tick_label=list(uniques[3][10:]))
+        ax0.set_title("\"Zero\" weights")
+        ax0.set_xticks(np.arange(1, 11))
+        ax0.set_xticklabels(list(range(10)))
+        ax1.bar(uniques[0][10:], rel_counts[0][10:])  # , tick_label=list(uniques[3][10:]))
+        ax1.set_title("Group 1")
+        ax1.set_xticks(np.arange(1, 11))
+        ax1.set_xticklabels(list(range(10)))
+        ax2.bar(uniques[1][10:], rel_counts[1][10:])  # , tick_label=list(uniques[3][10:]))
+        ax2.set_title("Group 2")
+        ax2.set_xticks(np.arange(1, 11))
+        ax2.set_xticklabels(list(range(10)))
+        ax3.bar(uniques[2][10:], rel_counts[2][10:])  # , tick_label=list(uniques[3][10:]))
+        ax3.set_title("Group 3")
+        ax3.set_xticks(np.arange(1, 11))
+        ax3.set_xticklabels(list(range(10)))
+        fig.tight_layout()
+        plt.savefig("/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results/" \
+                    + str(trained_epochs) + "-epochs",
+                    dpi=300)
+    else:
+        train_model(model, train_seq, validation_data=[test_seq.images,
+                                                       tf.keras.utils.to_categorical(heldout_set[1],
+                                                                                     num_classes=NUM_CLASSES)],
+                    epochs=epochs)
+
+        result_prob = model.predict(test_seq.images)
+        result_argmax = np.argmax(result_prob, axis=1)
+
+        print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
+        res = np.zeros_like(result_argmax)
+        for i in range(len(result_argmax)):
+            res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+                else int(-1 - heldout_set[1][i])
+        unique, counts = np.unique(res, return_counts=True)
+        uniques.append(unique.astype(int))
+        d = dict(zip(unique, counts))
+        print("Distribution of correct/incorrect predictions (key - true label plus one")
+        print(np.asarray((unique, counts)).T)
+        all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
+        a_all = dict(zip(all_indices, all_counts))
+        rel_counts.append(np.array([d[i] / a_all[abs(i) - 1] for i in unique]))
+        print(np.asarray((unique, rel_counts[0])).T)
+
+
+    #plt.show()
+
 
 
 if __name__ == '__main__':
