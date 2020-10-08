@@ -43,9 +43,9 @@ NUM_GROUPS = 3
 ## if running on the GPU (isegpu2) or in the local machine
 GPU_FLAG = 0
 if GPU_FLAG:
-    LOG_DIR = '/local/home/antonma/HFL/my_tf_logs_'
+    LOG_DIR = '/local/home/antonma/HFL/my_tf_logs/my_tf_logs_gpu_'
 else:
-    LOG_DIR = '/home/anton/my_tf_logs/my_tf_logs_'
+    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results/my_tf_logs/my_tf_logs_'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
@@ -77,6 +77,24 @@ args = parser.parse_args()
 def softplus_inverse(x):
     return np.log(np.exp(x) - 1)
 
+def get_shuffled_mnist(filename):
+    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path=filename)
+    # permute labels
+    imgs_all = np.concatenate((train_set[0], heldout_set[0]), axis=0)
+    imgs_all = imgs_all.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
+    labels_all = np.concatenate((train_set[1], heldout_set[1]), axis=0)
+    labels_all = np.expand_dims(labels_all, axis=1)
+    all_data = np.concatenate((imgs_all, labels_all), axis=1)
+    np.random.shuffle(all_data)
+    imgs_all = all_data[:, :-1]
+    labels_all = all_data[:, -1:]
+    train_set = (imgs_all[0:NUM_TRAIN_EXAMPLES, :],
+                 labels_all[0:NUM_TRAIN_EXAMPLES, :])
+    heldout_set = (imgs_all[NUM_TRAIN_EXAMPLES:, :],
+                    labels_all[NUM_TRAIN_EXAMPLES:, :])
+
+    return train_set, heldout_set
+
 
 class MNISTSequence(tf.keras.utils.Sequence):
     """Produces a sequence of MNIST digits with labels."""
@@ -102,7 +120,7 @@ class MNISTSequence(tf.keras.utils.Sequence):
         else:
             images = 2 * (images / 255.) - 1.
             if labels_bin is None:
-                self.labels_bin = tf.keras.utils.to_categorical(labels_int)
+                self.labels_bin = tf.keras.utils.to_categorical(labels_int, num_classes=NUM_CLASSES)
             else:
                 self.labels_bin = labels_bin
             if labels_int is None:
@@ -242,29 +260,37 @@ def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASS
     return model
 
 
-def train_model(model, inputs, outputs, epochs=args.num_epochs, validation_split=0.0, verbose=0, use_tensorboard=True):
+def train_model(model, inputs, outputs, validation_data=None, typename="grouped", epochs=args.num_epochs,
+                validation_split=0.0,
+                verbose=0, use_tensorboard=True):
     """
     Trains model creating callback and maybe with validation
     """
     if use_tensorboard:
         tensorboard = tfk.callbacks.TensorBoard(
-            log_dir=LOG_DIR,
+            log_dir=LOG_DIR + "/" + typename,
             histogram_freq=0,
             write_graph=True,
             write_grads=True,
             update_freq='epoch'
         )
         tensorboard.set_model(model)
+
+        #earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+        #mcp_save = tf.keras.callbacks.ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+        #reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(
+        #                       monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
+
     else:
         tensorboard = None
 
-    def named_logs(model, logs):
-        result = {}
-        for l in zip(model.metrics_names, logs):
-            result[l[0]] = l[1]
-        return result
-
     if 0:
+        def named_logs(model, logs):
+            result = {}
+            for l in zip(model.metrics_names, logs):
+                result[l[0]] = l[1]
+            return result
+
         for epoch in range(epochs):
             print('Epoch {}'.format(epoch))
             epoch_accuracy, epoch_loss = [], []
@@ -273,15 +299,36 @@ def train_model(model, inputs, outputs, epochs=args.num_epochs, validation_split
                     batch_x, batch_y)
                 tensorboard.on_epoch_end(step, named_logs(model, logs))
     else:
-        training_history = model.fit(
-            inputs,  # input
-            outputs,  # output
-            validation_split=validation_split,
-            batch_size=args.batch,
-            verbose=verbose,
-            epochs=epochs,
-            callbacks=[tensorboard],
-        )
+        if validation_data is None:
+            training_history = model.fit(
+                inputs,  # input
+                outputs,  # output
+                batch_size=args.batch,
+                verbose=verbose,
+                epochs=epochs,
+                validation_split=validation_split,
+                callbacks=[tensorboard,
+                           #earlyStopping,
+                           #mcp_save,
+                           #reduce_lr_loss
+                           ],
+                shuffle=True,
+            )
+        else:
+            training_history = model.fit(
+                inputs,  # input
+                outputs,  # output
+                validation_data=(validation_data),
+                batch_size=args.batch,
+                verbose=verbose,
+                epochs=epochs,
+                callbacks=[tensorboard,
+                           #earlyStopping,
+                           #mcp_save,
+                           #reduce_lr_loss
+                           ],
+                shuffle=True,
+            )
     return model
 
 
@@ -460,7 +507,7 @@ class DenseVariationalGrouped(tfkl.Layer):
             # tfkb.switch(tf.math.is_nan(loss), tf.math.add(count, 0.0), tf.math.add(count, 1.0))
 
             self.add_loss(loss / self.num_sample)
-
+            #tf.summary.scalar(loss, "ELBO")
             # train_summary_writer = tf.summary.create_file_writer(LOG_DIR)
             # tf.summary.histogram(
             #    name='gamma_rho',
@@ -489,7 +536,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         return result / self.num_sample  # TODO: normalize to number of non-NaNs?
 
 
-def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.01, clip=False, prior_params=None,
+def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.01, clip=0.0, prior_params=None,
                                          training=None, local_reparam=False):
     input_img = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1],), name='img')
     input_logits = tfk.Input(shape=(NUM_CLASSES,), name='logits')
@@ -497,7 +544,7 @@ def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.0
     combined_input = [input_img, input_logits, input_int]
 
     kl_weight = 1.0 / ((NUM_TRAIN_EXAMPLES / float(args.batch)) * (NUM_GROUPS + 1))
-    # kl_weight = 0.0
+    kl_weight = 0.0
     # TODO: add construction from list, e.g. (num_units, type, activation)
     # for el in structure_list:
     output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
@@ -524,20 +571,19 @@ def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.0
 
 def main(argv):
     warnings.filterwarnings('ignore')
-    # tf.compat.v1.disable_eager_execution()
+    tf.compat.v1.disable_eager_execution()
     prior_params = {
         "tau_inv_0": 1e-0,  # prior scale of weights dispersion around 0
         "v": 3e-1,  # prior scale of group weights dispersion around main ones
         "num_groups": NUM_GROUPS,
     }
 
-    epochs = 100  # args.num_epochs
+    epochs = 300  # args.num_epochs
     num_epochs_g = 30  # args.num_epochs_g
     num_sample = 5
-    pretrain = 0
     verbose = 1
 
-    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
+    train_set, heldout_set = get_shuffled_mnist('mnist.npz')
     train_seq = MNISTSequence(images=train_set[0], labels_int=train_set[1], batch_size=args.batch,
                               preprocessing=False, labels_to_binary=False)
 
@@ -553,18 +599,25 @@ def main(argv):
                                         labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
                                         preprocessing=True)
     train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
-                epochs=num_epochs_g, validation_split=0.0, verbose=verbose)
+                epochs=num_epochs_g, validation_split=0.0, verbose=verbose,
+                typename="grouped",)
     print(" ... Predicting groups")
     predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
                                                    verbose=verbose)
     predicted_groups_probs = np.hstack((predicted_groups_probs,
                                         np.zeros((np.shape(predicted_groups_probs)[0],
                                                   NUM_CLASSES - NUM_GROUPS))))
-    # images with appended predicted group probs
     test_seq = MNISTSequence(images=heldout_set[0], labels_bin=predicted_groups_probs,
                              labels_to_binary=False,
                              batch_size=args.batch,
                              preprocessing=False)
+    test_seq_grouped = MNISTSequence(images=heldout_set[0], labels_int=heldout_set[1], batch_size=args.batch,
+                                      labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
+                                      preprocessing=True)
+    test_seq_grouped.labels_bin = np.hstack((test_seq_grouped.labels_bin,
+                                        np.zeros((np.shape(test_seq_grouped.labels_bin)[0],
+                                                  NUM_CLASSES - NUM_GROUPS))))
+
 
     print(' ... Training class inference network')
     for t in (1e-0,):  # 1e-1,):
@@ -578,9 +631,9 @@ def main(argv):
                     model = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
                                                                  prior_params=prior_params,
                                                                  training=True,
-                                                                 local_reparam=True,
+                                                                 local_reparam=False,
                                                                  )
-                    train_seq.labels_int = train_seq_grouped.labels_int
+                    pretrain = 0
                     if pretrain:  # works for one layer only
                         model_dense = tfk.Sequential(
                             tfkl.Dense(NUM_CLASSES)
@@ -606,9 +659,24 @@ def main(argv):
                         model.set_weights(weights_initial)
                     if verbose:
                         print(' ... Training main network')
-                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
+                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
                                 train_seq.labels_bin,
-                                epochs=epochs, verbose=verbose, validation_split=0.0)
+                                #validation_data=([test_seq.images, test_seq_grouped.labels_bin,
+                                #                  np.argmax(predicted_groups_probs, axis=1)],  #test_seq_grouped.labels_int],
+                                #                 tf.keras.utils.to_categorical(y=heldout_set[1], num_classes=NUM_CLASSES)),
+                                typename="training",
+                                epochs=1, verbose=verbose, validation_split=0.0)
+
+                    outfile = LOG_DIR + "/weights_1_epochs.npy"
+                    np.save(outfile, model.get_weights())
+                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
+                                train_seq.labels_bin, typename="training",
+                                epochs=9, verbose=verbose, validation_split=0.0)
+                    outfile = LOG_DIR + "/weights_10_epochs.npy"
+                    np.save(outfile, model.get_weights())
+                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
+                                train_seq.labels_bin, typename="training",
+                                epochs=epochs-10, verbose=verbose, validation_split=0.0)
 
                     # create prediction model and transfer trained weights
                     model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
@@ -623,7 +691,7 @@ def main(argv):
                     result_prob = model.predict([test_seq.images, test_seq.labels_bin, test_seq.labels_int])
                     result_argmax = np.argmax(result_prob, axis=1)
 
-                    # print info
+                    # print info about training accuracy
                     print(epochs, num_epochs_g, num_sample, clip, t, v, lr)
                     print("Test accuracy:")
                     print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
@@ -639,7 +707,9 @@ def main(argv):
                     a_all = dict(zip(all_indices, all_counts))
                     rel_counts = np.array([d[i] / a_all[abs(i) - 1] for i in unique])
                     print(np.asarray((unique, rel_counts)).T)
-                    outfile = LOG_DIR + "/weights.npy"
+
+                    # save weights
+                    outfile = LOG_DIR + "/weights_" + str(epochs) + ".npy"
                     np.save(outfile, model.get_weights())
 
 
