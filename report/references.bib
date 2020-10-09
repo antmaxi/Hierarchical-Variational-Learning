@@ -1,0 +1,178 @@
+@misc{corinzia2019variational,
+    title={Variational Federated Multi-Task Learning},
+    author={Luca Corinzia and Joachim M. Buhmann},
+    year={2019},
+    eprint={1906.06268},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG}
+}
+
+@inproceedings{ranganath2015hierarchical,
+author = {Ranganath, Rajesh and Tran, Dustin and Blei, David M.},
+title = {Hierarchical Variational Models},
+year = {2016},
+publisher = {JMLR.org},
+booktitle = {Proceedings of the 33rd International Conference on International Conference on Machine Learning - Volume 48},
+pages = {2568–2577},
+numpages = {10},
+location = {New York, NY, USA},
+series = {ICML’16}
+}
+
+
+
+@misc{blundell2015weight,
+    title={Weight Uncertainty in Neural Networks},
+    author={Charles Blundell and Julien Cornebise and Koray Kavukcuoglu and Daan Wierstra},
+    year={2015},
+    eprint={1505.05424},
+    archivePrefix={arXiv},
+    primaryClass={stat.ML}
+}
+
+@InProceedings{FedAvg,
+  title = 	 {{Communication-Efficient Learning of Deep Networks from Decentralized Data}},
+  author = 	 {Brendan McMahan and Eider Moore and Daniel Ramage and Seth Hampson and Blaise Aguera y Arcas},
+  booktitle = 	 {Proceedings of the 20th International Conference on Artificial Intelligence and Statistics},
+  pages = 	 {1273--1282},
+  year = 	 {2017},
+  editor = 	 {Aarti Singh and Jerry Zhu},
+  volume = 	 {54},
+  series = 	 {Proceedings of Machine Learning Research},
+  address = 	 {Fort Lauderdale, FL, USA},
+  month = 	 {20--22 Apr},
+  publisher = 	 {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v54/mcmahan17a/mcmahan17a.pdf},
+  url = 	 {http://proceedings.mlr.press/v54/mcmahan17a.html},
+  abstract = 	 {Modern mobile devices have access to a wealth of data suitable for learning models, which in turn can greatly improve the user experience on the device. For example, language models can improve speech recognition and text entry, and image models can automatically select good photos. However, this rich data is often privacy sensitive, large in quantity, or both, which may preclude logging to the data center and training there using conventional approaches.  We advocate an alternative that leaves the training data distributed on the mobile devices, and learns a shared model by aggregating locally-computed updates. We term this decentralized approach Federated Learning.  We present a practical method for the federated learning of deep networks based on iterative model averaging, and conduct an extensive empirical evaluation, considering five different model architectures and four datasets. These experiments demonstrate the approach is robust to the unbalanced and non-IID data distributions that are a defining characteristic of this setting. Communication costs are the principal constraint, and we show a reduction in required communication rounds by 10-100x as compared to synchronized stochastic gradient descent. }
+}
+
+@incollection{li2018federated,
+ abstract = {Federated Learning is a distributed learning paradigm with two key challenges that differentiate it from traditional distributed optimization: (1) significant variability in terms of the systems characteristics on each device in the network (systems heterogeneity), and (2) non-identically distributed data across the network (statistical heterogeneity). In this work, we introduce a framework, FedProx, to tackle heterogeneity in federated networks. FedProx can be viewed as a generalization and re-parametrization of FedAvg, the current state-of-the-art method for federated learning. While this re-parameterization makes only minor modifications to the method itself, these modifications have important ramifications both in theory and in practice. Theoretically, we provide convergence guarantees for our framework when learning over data from non-identical distributions (statistical heterogeneity), and while adhering to device-level systems constraints by allowing each participating device to perform a variable amount of work (systems heterogeneity). Practically, we demonstrate that FedProx allows for more robust convergence than FedAvg across a suite of realistic federated datasets. In particular, in highly heterogeneous settings, FedProx demonstrates significantly more stable and accurate convergence behavior relative to FedAvg\textemdash improving absolute test accuracy by 18.8\% on average.},
+ author = {Li, Tian and Sahu, Anit Kumar and Zaheer, Manzil and Sanjabi, Maziar and Talwalkar, Ameet and Smith, Virginia},
+ booktitle = {Proceedings of Machine Learning and Systems 2020},
+ pages = {429--450},
+ title = {Federated Optimization in Heterogeneous Networks},
+ year = {2020}
+}
+
+
+@incollection{smith2017federated,
+title = {Federated Multi-Task Learning},
+author = {Smith, Virginia and Chiang, Chao-Kai and Sanjabi, Maziar and Talwalkar, Ameet S},
+booktitle = {Advances in Neural Information Processing Systems 30},
+editor = {I. Guyon and U. V. Luxburg and S. Bengio and H. Wallach and R. Fergus and S. Vishwanathan and R. Garnett},
+pages = {4424--4434},
+year = {2017},
+publisher = {Curran Associates, Inc.},
+url = {http://papers.nips.cc/paper/7029-federated-multi-task-learning.pdf}
+}
+
+@InProceedings{rezende2015variational,
+  title = 	 {Variational Inference with Normalizing Flows},
+  author = 	 {Danilo Rezende and Shakir Mohamed},
+  booktitle = 	 {Proceedings of the 32nd International Conference on Machine Learning},
+  pages = 	 {1530--1538},
+  year = 	 {2015},
+  editor = 	 {Francis Bach and David Blei},
+  volume = 	 {37},
+  series = 	 {Proceedings of Machine Learning Research},
+  address = 	 {Lille, France},
+  month = 	 {07--09 Jul},
+  publisher = 	 {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v37/rezende15.pdf},
+  url = 	 {http://proceedings.mlr.press/v37/rezende15.html},
+  abstract = 	 {The choice of the approximate posterior distribution is one of the core problems in variational inference. Most applications of variational inference employ simple families of posterior approximations in order to allow for efficient inference, focusing on mean-field or other simple structured approximations. This restriction has a significant impact on the quality of inferences made using variational methods. We introduce a new approach for specifying flexible, arbitrarily complex and scalable approximate posterior distributions. Our approximations are distributions constructed through a normalizing flow, whereby a simple initial density is transformed into a more complex one by applying a sequence of invertible transformations until a desired level of complexity is attained. We use this view of normalizing flows to develop categories of finite and infinitesimal flows and provide a unified view of approaches for constructing rich posterior approximations. We demonstrate that the theoretical advantages of having posteriors that better match the true posterior, combined with the scalability of amortized variational approaches, provides a clear improvement in performance and applicability of variational inference.}
+}
+
+@InProceedings{ranganath2013black,
+  title = 	 {{Black Box Variational Inference}},
+  author = 	 {Rajesh Ranganath and Sean Gerrish and David Blei},
+  booktitle = 	 {Proceedings of the Seventeenth International Conference on Artificial Intelligence and Statistics},
+  pages = 	 {814--822},
+  year = 	 {2014},
+  editor = 	 {Samuel Kaski and Jukka Corander},
+  volume = 	 {33},
+  series = 	 {Proceedings of Machine Learning Research},
+  address = 	 {Reykjavik, Iceland},
+  month = 	 {22--25 Apr},
+  publisher = 	 {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v33/ranganath14.pdf},
+  url = 	 {http://proceedings.mlr.press/v33/ranganath14.html},
+  abstract = 	 {Variational inference has become a widely used method to approximate posteriors in complex latent variables models.  However, deriving a variational inference algorithm generally requires significant model-specific analysis. These efforts can hinder and deter us from quickly developing and exploring a variety of models for a problem at hand.  In this paper, we present a “black box” variational inference algorithm, one that can be quickly applied to many models with little additional derivation.  Our method is based on a stochastic optimization of the variational objective where the noisy gradient is computed from Monte Carlo samples from the variational distribution.  We develop a number of methods to reduce the variance of the gradient, always maintaining the criterion that we want to avoid difficult model-based derivations.  We evaluate our method against the corresponding black box sampling based methods. We find that our method reaches better predictive likelihoods much faster than sampling methods. Finally, we demonstrate that Black Box Variational Inference lets us easily explore a wide space of models by quickly constructing and evaluating several models of longitudinal healthcare data.}
+}
+
+@INPROCEEDINGS{Gestures,
+author={A. {Joshi} and S. {Ghosh} and M. {Betke} and S. {Sclaroff} and H. {Pfister}},
+booktitle={2017 IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+title={Personalizing Gesture Recognition Using Hierarchical Bayesian Neural Networks},
+year={2017},
+volume={},
+number={},
+pages={455-464},
+keywords={Bayes methods;belief networks;gesture recognition;image classification;image representation;learning (artificial intelligence);neural nets;inter-subject variations;hierarchical Bayesian neural networks;challenging pattern recognition problem;subject-specific variations;gesture recognition datasets;active learning algorithms;subject-specific personalization data;network weights;Bayes methods;Neural networks;Hidden Markov models;Gesture recognition;Adaptation models;Stochastic processes},
+doi={10.1109/CVPR.2017.56},
+ISSN={1063-6919},
+month={July},}
+
+@inproceedings{Zhang2010,
+author = {Zhang, Yu and Yeung, Dit-Yan},
+title = {A Convex Formulation for Learning Task Relationships in Multi-Task Learning},
+year = {2010},
+isbn = {9780974903965},
+publisher = {AUAI Press},
+address = {Arlington, Virginia, USA},
+booktitle = {Proceedings of the Twenty-Sixth Conference on Uncertainty in Artificial Intelligence},
+pages = {733–742},
+numpages = {10},
+location = {Catalina Island, CA},
+series = {UAI’10}
+}
+
+@article{Goncalves,
+  author  = {Andr{{\'e}} R. Gon{\c{c}}alves and Fernando J. Von Zuben and Arindam Banerjee},
+  title   = {Multi-task Sparse Structure Learning with Gaussian Copula Models},
+  journal = {Journal of Machine Learning Research},
+  year    = {2016},
+  volume  = {17},
+  number  = {33},
+  pages   = {1-30},
+  url     = {http://jmlr.org/papers/v17/15-215.html}
+}
+
+@misc{nguyen2020distributed,
+    title={Distributed and Democratized Learning: Philosophy and Research Challenges},
+    author={Minh N. H. Nguyen and Shashi Raj Pandey and Kyi Thar and Nguyen H. Tran and Mingzhe Chen and Walid Saad and Choong Seon Hong},
+    year={2020},
+    eprint={2003.09301},
+    archivePrefix={arXiv},
+    primaryClass={cs.AI}
+}
+
+@article{Liu2019,
+  title={Edge-Assisted Hierarchical Federated Learning with Non-IID Data},
+  author={Lumin Liu and Jun Zhang and S. H. Song and Khaled Ben Letaief},
+  journal={ArXiv},
+  year={2019},
+  volume={abs/1905.06641}
+}
+
+@INPROCEEDINGS{Abad2020, author={M. S. H. {Abad} and E. {Ozfatura} and D. {GUndUz} and O. {Ercetin}}, booktitle={ICASSP 2020 - 2020 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, title={Hierarchical Federated Learning ACROSS Heterogeneous Cellular Networks}, year={2020}, volume={}, number={}, pages={8866-8870},}
+
+@misc{krasser_blog,
+    title={{Martin Krasser's blog}},
+    howpublished = {http://krasserm.github.io/2019/03/14/bayesian-neural-networks/},
+}
+
+@ARTICLE{lenet,  author={Y. {Lecun} and L. {Bottou} and Y. {Bengio} and P. {Haffner}},  journal={Proceedings of the IEEE},   title={Gradient-based learning applied to document recognition},   year={1998},  volume={86},  number={11},  pages={2278-2324},}
+
+@incollection{localReparam,
+title = {Variational Dropout and the Local Reparameterization Trick},
+author = {Kingma, Durk P and Salimans, Tim and Welling, Max},
+booktitle = {Advances in Neural Information Processing Systems 28},
+editor = {C. Cortes and N. D. Lawrence and D. D. Lee and M. Sugiyama and R. Garnett},
+pages = {2575--2583},
+year = {2015},
+publisher = {Curran Associates, Inc.},
+url = {http://papers.nips.cc/paper/5666-variational-dropout-and-the-local-reparameterization-trick.pdf}
+}
