@@ -1,6 +1,18 @@
 # The code is partially adapted from
 # http://krasserm.github.io/2019/03/14/bayesian-neural-networks/ and
 # https://github.com/tensorflow/probability/blob/master/tensorflow_probability/examples/bayesian_neural_network.py
+
+# GPU_FLAG shows if the program will be run on GPU or local CPU
+
+# the main arguments are
+# num_epochs (for training the main network which decides class),
+# num_epochs_g (epochs for the network which finds the probability of group),
+# num_sample (how many times to sample in Monte-Carlo sampling to estimated the integral
+#             over the distribution for the main network)
+# lr (learning rate for the main network)
+# tau_inv_0 (initial and prior scale of weights)
+# v (square root of prior of group-wise weights relative to the "zero"-ones)
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -15,6 +27,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 import argparse
+import csv
 import warnings
 
 import tensorflow as tf
@@ -41,11 +54,12 @@ NUM_CLASSES = 10
 NUM_GROUPS = 3
 
 ## if running on the GPU (isegpu2) or in the local machine
-GPU_FLAG = 0
+GPU_FLAG = 1
 if GPU_FLAG:
     LOG_DIR = '/local/home/antonma/HFL/my_tf_logs/my_tf_logs_gpu_'
 else:
-    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results/my_tf_logs/my_tf_logs_'
+    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/' \
+              + 'results/my_tf_logs/my_tf_logs_gpu/'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
@@ -62,11 +76,11 @@ parser = argparse.ArgumentParser(description='Choose the type of execution.')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
                     default=0.1)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
-                    default=10)
+                    default=1)
 parser.add_argument('--num_epochs_g', help='Number of training steps to run grouped inference.', type=int,
-                    default=5)
+                    default=1)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
-                    default=10)
+                    default=5)
 parser.add_argument('--batch', help='Batch size.', type=int,
                     default=128)
 parser.add_argument('--gpu', help="To run on GPU or not", type=int,
@@ -77,21 +91,23 @@ args = parser.parse_args()
 def softplus_inverse(x):
     return np.log(np.exp(x) - 1)
 
+
 def get_shuffled_mnist(filename):
     train_set, heldout_set = tf.keras.datasets.mnist.load_data(path=filename)
-    # permute labels
+    # get all the data concatenated
     imgs_all = np.concatenate((train_set[0], heldout_set[0]), axis=0)
-    imgs_all = imgs_all.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
     labels_all = np.concatenate((train_set[1], heldout_set[1]), axis=0)
-    labels_all = np.expand_dims(labels_all, axis=1)
-    all_data = np.concatenate((imgs_all, labels_all), axis=1)
-    np.random.shuffle(all_data)
-    imgs_all = all_data[:, :-1]
-    labels_all = all_data[:, -1:]
-    train_set = (imgs_all[0:NUM_TRAIN_EXAMPLES, :],
-                 labels_all[0:NUM_TRAIN_EXAMPLES, :])
-    heldout_set = (imgs_all[NUM_TRAIN_EXAMPLES:, :],
-                    labels_all[NUM_TRAIN_EXAMPLES:, :])
+    # choose indices for train set
+    indices_train = np.arange(np.shape(imgs_all)[0])
+    np.random.shuffle(indices_train)
+    indices_test = indices_train[NUM_TRAIN_EXAMPLES:]
+    indices_train = indices_train[0:NUM_TRAIN_EXAMPLES]
+    train_set = (imgs_all[indices_train],
+                 np.array(labels_all[indices_train], dtype=np.int)
+                 )
+    heldout_set = (imgs_all[indices_test],
+                   np.array(labels_all[indices_test], dtype=np.int)
+                   )
 
     return train_set, heldout_set
 
@@ -207,7 +223,8 @@ def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASS
     # lambda function to pass as input to the kernel_divergence_fn on
     # flipout layers.
     kl_divergence_function = (lambda q, p, _: tfpd.kl_divergence(q, p) /  # pylint: disable=g-long-lambda
-                                              tf.cast(NUM_TRAIN_EXAMPLES, dtype=tf.float32))  # TODO: why not number of batches?
+                                              tf.cast(NUM_TRAIN_EXAMPLES,
+                                                      dtype=tf.float32))  # TODO: why not number of batches? cf. Krasser blog
 
     # Define a LeNet-5 model using three convolutional (with max pooling)
     # and two fully connected dense layers. We use the Flipout
@@ -242,8 +259,8 @@ def create_compile_group_inference_model(net_type="dens1", output_size=NUM_CLASS
     elif net_type == "dens1":
         model = tf.keras.models.Sequential([
             tf.keras.layers.Flatten(),
-            tfp.layers.DenseFlipout(
-                output_size, kernel_divergence_fn=kl_divergence_function,
+            tfk.layers.Dense(
+                output_size,  # kernel_divergence_fn=kl_divergence_function,
                 activation=tf.nn.softmax),
         ])
     else:
@@ -276,9 +293,9 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
         )
         tensorboard.set_model(model)
 
-        #earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
-        #mcp_save = tf.keras.callbacks.ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
-        #reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(
+        # earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, verbose=0, mode='min')
+        # mcp_save = tf.keras.callbacks.ModelCheckpoint('.mdl_wts.hdf5', save_best_only=True, monitor='val_loss', mode='min')
+        # reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(
         #                       monitor='val_loss', factor=0.1, patience=7, verbose=1, epsilon=1e-4, mode='min')
 
     else:
@@ -308,9 +325,9 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
                 epochs=epochs,
                 validation_split=validation_split,
                 callbacks=[tensorboard,
-                           #earlyStopping,
-                           #mcp_save,
-                           #reduce_lr_loss
+                           # earlyStopping,
+                           # mcp_save,
+                           # reduce_lr_loss
                            ],
                 shuffle=True,
             )
@@ -323,9 +340,9 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
                 verbose=verbose,
                 epochs=epochs,
                 callbacks=[tensorboard,
-                           #earlyStopping,
-                           #mcp_save,
-                           #reduce_lr_loss
+                           # earlyStopping,
+                           # mcp_save,
+                           # reduce_lr_loss
                            ],
                 shuffle=True,
             )
@@ -335,6 +352,7 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
 class DenseVariationalGrouped(tfkl.Layer):
     """The layer with normal priors on kernels and biases, and except the main weights there are groups each with its
     set of weights and with priors as normals centered on the main weights, with learnable scales"""
+
     def __init__(self,
                  units,
                  kl_weight,
@@ -417,7 +435,8 @@ class DenseVariationalGrouped(tfkl.Layer):
                                                      trainable=True))
             self.bias_rho_g.append(self.add_weight(name='bias_rho_' + str(i),
                                                    shape=(self.units,),
-                                                   initializer=tf.constant_initializer(value=softplus_inverse(self.tau_inv_0)),
+                                                   initializer=tf.constant_initializer(
+                                                       value=softplus_inverse(self.tau_inv_0)),
                                                    trainable=True))
         super().build(input_shape)
 
@@ -448,7 +467,7 @@ class DenseVariationalGrouped(tfkl.Layer):
         gamma_sigma = tf.math.softplus(self.gamma_rho)
 
         result = 1e-8 * tf.ones_like(K.dot(imgs, self.kernel_mu))
-
+        elbo = 0.0
         # Monte-Carlo for loss
         imgs = tf.expand_dims(imgs, axis=1)  # batch x 1 x 784
         for step in range(self.num_sample):
@@ -500,14 +519,15 @@ class DenseVariationalGrouped(tfkl.Layer):
                 # all commented doesn't work, but shows the idea
                 # throw out if loss is None (numerically too small argument of logarithm appeared somewhere)
                 # loss = tf.constant(1.0) / tf.constant(0.0)
-                #loss = tfkb.switch(tf.math.is_nan(loss), 0.0, loss)
-                #loss = tfkb.switch(tf.math.is_inf(loss), 0.0, loss)
-                #loss = tf.where(tf.math.is_nan(loss), tf.zeros_like(loss), loss)
+                # loss = tfkb.switch(tf.math.is_nan(loss), 0.0, loss)
+                # loss = tfkb.switch(tf.math.is_inf(loss), 0.0, loss)
+                # loss = tf.where(tf.math.is_nan(loss), tf.zeros_like(loss), loss)
             # self.k.assign(tfkb.switch(loss, tf.math.add(self.k, 1.0), tf.math.add(self.k, 0.0)))
             # tfkb.switch(tf.math.is_nan(loss), tf.math.add(count, 0.0), tf.math.add(count, 1.0))
 
             self.add_loss(loss / self.num_sample)
-            #tf.summary.scalar(loss, "ELBO")
+            elbo += loss
+            # tf.summary.scalar(loss, "ELBO")
             # train_summary_writer = tf.summary.create_file_writer(LOG_DIR)
             # tf.summary.histogram(
             #    name='gamma_rho',
@@ -532,8 +552,8 @@ class DenseVariationalGrouped(tfkl.Layer):
                                             tf.tile(tf.expand_dims(inputs[0][:, j], 1),
                                                     tf.constant([1, self.units], tf.int32))
                                             )
-                result += self.activation(aux)
-        return result / self.num_sample  # TODO: normalize to number of non-NaNs?
+                result += aux
+        return self.activation(result / self.num_sample)#, elbo  # TODO: normalize to number of non-NaNs?
 
 
 def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.01, clip=0.0, prior_params=None,
@@ -544,24 +564,24 @@ def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.0
     combined_input = [input_img, input_logits, input_int]
 
     kl_weight = 1.0 / ((NUM_TRAIN_EXAMPLES / float(args.batch)) * (NUM_GROUPS + 1))
-    kl_weight = 0.0
+    # kl_weight = 0.0
     # TODO: add construction from list, e.g. (num_units, type, activation)
     # for el in structure_list:
     output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
-                                      activation=None,
-                                      num_sample=num_sample,
-                                      **prior_params,
-                                      clip=clip,
-                                      local_reparam=local_reparam
-                                      )(combined_input, training=training)
+                                            activation=None,
+                                            num_sample=num_sample,
+                                            **prior_params,
+                                            clip=clip,
+                                            local_reparam=local_reparam
+                                            )(combined_input, training=training)
     # TODO: stacking of layers doesn't work - why?
     # output2 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
     #                                 activation="relu",
     #                                 num_sample=num_sample,
     #                                 **prior_params,
     #                                 clip=clip)([output1, input_logits, input_int], training=training)
-    model = tfk.Model(inputs=combined_input, outputs=output1)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+    model = tfk.Model(inputs=combined_input, outputs=output1,)# elbo])
+    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),# None],
                   optimizer=tfk.optimizers.Adam(lr=lr),
                   metrics=['accuracy'],
                   # run_eagerly=True,
@@ -578,8 +598,8 @@ def main(argv):
         "num_groups": NUM_GROUPS,
     }
 
-    epochs = 300  # args.num_epochs
-    num_epochs_g = 30  # args.num_epochs_g
+    epochs = 100  # args.num_epochs
+    num_epochs_g = 100  # args.num_epochs_g
     num_sample = 5
     verbose = 1
 
@@ -600,7 +620,7 @@ def main(argv):
                                         preprocessing=True)
     train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
                 epochs=num_epochs_g, validation_split=0.0, verbose=verbose,
-                typename="grouped",)
+                typename="grouped", )
     print(" ... Predicting groups")
     predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
                                                    verbose=verbose)
@@ -612,105 +632,137 @@ def main(argv):
                              batch_size=args.batch,
                              preprocessing=False)
     test_seq_grouped = MNISTSequence(images=heldout_set[0], labels_int=heldout_set[1], batch_size=args.batch,
-                                      labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
-                                      preprocessing=True)
+                                     labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
+                                     preprocessing=True)
     test_seq_grouped.labels_bin = np.hstack((test_seq_grouped.labels_bin,
-                                        np.zeros((np.shape(test_seq_grouped.labels_bin)[0],
-                                                  NUM_CLASSES - NUM_GROUPS))))
-
+                                             np.zeros((np.shape(test_seq_grouped.labels_bin)[0],
+                                                       NUM_CLASSES - NUM_GROUPS))))
 
     print(' ... Training class inference network')
-    for t in (1e-0,):  # 1e-1,):
-        for v in (3e-1,):  # 1e-2,):
-            for lr in (1e-1,):  # 1e-2, 1e-3):
-                for clip in (100.0,):  # 10.0, 1000.0, 0.0):
-                    print(epochs, clip, t, v, lr)
-                    prior_params["tau_inv_0"] = t
-                    prior_params["v"] = v
+    #for m in range(5):
+    for t in (1e-0,): #3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3):
+        for num_sample in (5,):# 20, 50):
+            for v in (3e-1,): #1e-1, 3e-2, 3e-1):
+                for lr in (1e-1,): # 3e-2, 1e-2, 3e-3):
+                    for clip in (100.0,):  # 10.0, 1000.0, 0.0):
+                        print(epochs, clip, t, v, lr)
+                        prior_params["tau_inv_0"] = t
+                        prior_params["v"] = v
 
-                    model = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
-                                                                 prior_params=prior_params,
-                                                                 training=True,
-                                                                 local_reparam=False,
-                                                                 )
-                    pretrain = 0
-                    if pretrain:  # works for one layer only
-                        model_dense = tfk.Sequential(
-                            tfkl.Dense(NUM_CLASSES)
-                        )
-                        model_dense.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-                                            optimizer=tfk.optimizers.Adam(lr=lr),
-                                            metrics=['accuracy'],
-                                            run_eagerly=True,
-                                            )
-                        model_dense.fit(train_seq.images, train_seq.labels_bin, epochs=1, verbose=verbose)
-                        weights_pretrained = model_dense.get_weights()
-                        # print(model.summary())
-                        weights_initial = model.get_weights()
-                        # TODO: check indices
-                        weights_initial[0] = weights_pretrained[0]
-                        weights_initial[6] = weights_pretrained[0]
-                        weights_initial[8] = weights_pretrained[0]
-                        weights_initial[10] = weights_pretrained[0]
-                        weights_initial[1] = weights_pretrained[1]
-                        weights_initial[7] = weights_pretrained[1]
-                        weights_initial[9] = weights_pretrained[1]
-                        weights_initial[11] = weights_pretrained[1]
-                        model.set_weights(weights_initial)
-                    if verbose:
-                        print(' ... Training main network')
-                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
-                                train_seq.labels_bin,
-                                #validation_data=([test_seq.images, test_seq_grouped.labels_bin,
-                                #                  np.argmax(predicted_groups_probs, axis=1)],  #test_seq_grouped.labels_int],
-                                #                 tf.keras.utils.to_categorical(y=heldout_set[1], num_classes=NUM_CLASSES)),
-                                typename="training",
-                                epochs=1, verbose=verbose, validation_split=0.0)
+                        model = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
+                                                                     prior_params=prior_params,
+                                                                     training=True,
+                                                                     local_reparam=False,
+                                                                     )
+                        pretrain = 0
+                        # to use weights of pretrained dense network as initial ones, or not
+                        if pretrain:  # works for one layer only
+                            model_dense = tfk.Sequential(
+                                tfkl.Dense(NUM_CLASSES)
+                            )
+                            model_dense.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                                                optimizer=tfk.optimizers.Adam(lr=lr),
+                                                metrics=['accuracy'],
+                                                run_eagerly=True,
+                                                )
+                            model_dense.fit(train_seq.images, train_seq.labels_bin, epochs=1, verbose=verbose)
+                            weights_pretrained = model_dense.get_weights()
+                            # print(model.summary())
+                            weights_initial = model.get_weights()
+                            # TODO: check indices
+                            weights_initial[0] = weights_pretrained[0]
+                            weights_initial[6] = weights_pretrained[0]
+                            weights_initial[8] = weights_pretrained[0]
+                            weights_initial[10] = weights_pretrained[0]
+                            weights_initial[1] = weights_pretrained[1]
+                            weights_initial[7] = weights_pretrained[1]
+                            weights_initial[9] = weights_pretrained[1]
+                            weights_initial[11] = weights_pretrained[1]
+                            model.set_weights(weights_initial)
+                        if verbose:
+                            print(' ... Training main network')
 
-                    outfile = LOG_DIR + "/weights_1_epochs.npy"
-                    np.save(outfile, model.get_weights())
-                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
-                                train_seq.labels_bin, typename="training",
-                                epochs=9, verbose=verbose, validation_split=0.0)
-                    outfile = LOG_DIR + "/weights_10_epochs.npy"
-                    np.save(outfile, model.get_weights())
-                    train_model(model, [train_seq.images, train_seq.labels_bin, train_seq.labels_int],
-                                train_seq.labels_bin, typename="training",
-                                epochs=epochs-10, verbose=verbose, validation_split=0.0)
+                        several_weights_to_save = 0
+                        # to save weights several times during training or not
+                        if several_weights_to_save:
+                            train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
+                                        train_seq.labels_bin,
+                                        validation_data=([test_seq.images, test_seq_grouped.labels_bin,
+                                                          np.argmax(predicted_groups_probs, axis=1)],
+                                                         # test_seq_grouped.labels_int],
+                                                         tf.keras.utils.to_categorical(y=heldout_set[1],
+                                                                                       num_classes=NUM_CLASSES)),
+                                        typename="training",
+                                        epochs=1, verbose=verbose, validation_split=0.0)
+                            outfile = LOG_DIR + "/weights_1_epochs.npy"
+                            np.save(outfile, model.get_weights())
+                            train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
+                                        train_seq.labels_bin, typename="training",
+                                        epochs=9, verbose=verbose, validation_split=0.1)
+                            outfile = LOG_DIR + "/weights_10_epochs.npy"
+                            np.save(outfile, model.get_weights())
+                            train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
+                                        train_seq.labels_bin, typename="training",
+                                        epochs=epochs - 10, verbose=verbose, validation_split=0.0)
+                        else:
+                            #elbos = []
+                            #for j in range(epochs):
+                            train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
+                                        train_seq.labels_bin,
+                                        validation_data=([test_seq.images, test_seq_grouped.labels_bin,
+                                                          np.argmax(predicted_groups_probs, axis=1)],
+                                                         # test_seq_grouped.labels_int],
+                                                         tf.keras.utils.to_categorical(y=heldout_set[1],
+                                                                                       num_classes=NUM_CLASSES)),
+                                        typename="training",
+                                        epochs=epochs, verbose=verbose, validation_split=0.0)
+                            #    _, elbo_now = model.predict([test_seq.images, test_seq_grouped.labels_bin,
+                            #                                 np.argmax(predicted_groups_probs, axis=1)])
+                            ##                           elbos.append(elbo_now)
+                            #with open("ELBO.csv", "w", newline="") as f:
+                            #    writer = csv.writer(f)
+                            #    writer.writerows(elbos)
+                        # create prediction model and transfer trained weights
+                        model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
+                                                                             prior_params=prior_params,
+                                                                             training=False
+                                                                             )
+                        model_predict.set_weights(model.get_weights())
+                        if verbose:
+                            print(" ... Predicting classes")
 
-                    # create prediction model and transfer trained weights
-                    model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
-                                                                         prior_params=prior_params,
-                                                                         training=False
-                                                                         )
-                    model_predict.set_weights(model.get_weights())
-                    if verbose:
-                        print(" ... Predicting classes")
+                        # predict final probabilities of classes
+                        result_prob, _ = model.predict([test_seq.images, test_seq.labels_bin, test_seq.labels_int])
+                        result_argmax = np.argmax(result_prob, axis=1)
 
-                    # predict final probabilities of classes
-                    result_prob = model.predict([test_seq.images, test_seq.labels_bin, test_seq.labels_int])
-                    result_argmax = np.argmax(result_prob, axis=1)
+                        # print info about training accuracy
+                        print(epochs, num_epochs_g, num_sample, clip, t, v, lr)
+                        print("Test accuracy:")
+                        acc = sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax))
+                        print(acc)
+                        res = np.zeros_like(result_argmax)
+                        for i in range(len(result_argmax)):
+                            res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+                                else int(-1 - heldout_set[1][i])
+                        unique, counts = np.unique(res, return_counts=True)
+                        d = dict(zip(unique, counts))
+                        print("Distribution of correct/incorrect predictions (key - true label plus one")
+                        print(np.asarray((unique, counts)).T)
+                        all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
+                        a_all = dict(zip(all_indices, all_counts))
+                        rel_counts = np.array([d[i] / a_all[abs(i) - 1] for i in unique])
+                        print(np.asarray((unique, rel_counts)).T)
 
-                    # print info about training accuracy
-                    print(epochs, num_epochs_g, num_sample, clip, t, v, lr)
-                    print("Test accuracy:")
-                    print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-                    res = np.zeros_like(result_argmax)
-                    for i in range(len(result_argmax)):
-                        res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
-                            else int(-1 - heldout_set[1][i])
-                    unique, counts = np.unique(res, return_counts=True)
-                    d = dict(zip(unique, counts))
-                    print("Distribution of correct/incorrect predictions (key - true label plus one")
-                    print(np.asarray((unique, counts)).T)
-                    all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
-                    a_all = dict(zip(all_indices, all_counts))
-                    rel_counts = np.array([d[i] / a_all[abs(i) - 1] for i in unique])
-                    print(np.asarray((unique, rel_counts)).T)
+                        # save weights
+                        outfile = LOG_DIR + "/weights_" + str(epochs) + "_epochs.npy"
+                        np.save(outfile, model.get_weights())
+                        f = open(LOG_DIR + "/" + str(epochs) + "_" + str(num_epochs_g) + "_"
+                             + str(lr) + "_" + str(num_sample) + "_" + str(t) + "_" + str(v), "w+")
+                        f.close()
 
-                    # save weights
-                    outfile = LOG_DIR + "/weights_" + str(epochs) + ".npy"
-                    np.save(outfile, model.get_weights())
+                        with open(LOG_DIR + "Output_hierarchical_repeat.txt", "a+") as text_file:
+                            text_file.write("{} {} {} {} {}\n".format(acc, t, v, lr, num_sample))
+    print(LOG_DIR)
 
 
 if __name__ == '__main__':

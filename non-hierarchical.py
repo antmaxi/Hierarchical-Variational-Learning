@@ -1,3 +1,14 @@
+# The code is partially adapted from
+# http://krasserm.github.io/2019/03/14/bayesian-neural-networks/ and
+# https://github.com/tensorflow/probability/blob/master/tensorflow_probability/examples/bayesian_neural_network.py
+
+# the main arguments are
+# num_epochs (for training the main network which decides class),
+# num_sample (how many times to sample in Monte-Carlo sampling to estimated the integral
+#             over the distribution for the main network)
+# lr (learning rate for the main network)
+# tau_inv_0 (initial and prior scale of weights)
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -19,6 +30,8 @@ import argparse
 
 import tensorflow as tf
 import tensorflow_probability as tfp
+
+from tensorboard.plugins.hparams import api as hp
 
 tf.compat.v1.disable_eager_execution()
 
@@ -46,7 +59,7 @@ parser = argparse.ArgumentParser(description='Choose the type of execution.')
 parser.add_argument('--lr', help='Initial learning rate.', type=float,
                     default=0.001)
 parser.add_argument('--num_epochs', help='Number of training steps to run.', type=int,
-                    default=100)
+                    default=1)
 parser.add_argument('--num_sample', help='Number of Monte-Carlo sampling repeats.', type=int,
                     default=5)
 parser.add_argument('--batch', help='Batch size.', type=int,
@@ -69,19 +82,20 @@ def soft_inv(x):
 
 def get_shuffled_mnist(filename):
     train_set, heldout_set = tf.keras.datasets.mnist.load_data(path=filename)
-    # permute labels
+    # get all the data concatenated
     imgs_all = np.concatenate((train_set[0], heldout_set[0]), axis=0)
-    imgs_all = imgs_all.reshape((-1, IMAGE_SHAPE[0] * IMAGE_SHAPE[1]))
     labels_all = np.concatenate((train_set[1], heldout_set[1]), axis=0)
-    labels_all = np.expand_dims(labels_all, axis=1)
-    all_data = np.concatenate((imgs_all, labels_all), axis=1)
-    np.random.shuffle(all_data)
-    imgs_all = all_data[:, :-1]
-    labels_all = all_data[:, -1:]
-    train_set = (imgs_all[0:NUM_TRAIN_EXAMPLES, :],
-                 labels_all[0:NUM_TRAIN_EXAMPLES, :])
-    heldout_set = (imgs_all[NUM_TRAIN_EXAMPLES:, :],
-                    labels_all[NUM_TRAIN_EXAMPLES:, :])
+    # choose indices for train set
+    indices_train = np.arange(np.shape(imgs_all)[0])
+    np.random.shuffle(indices_train)
+    indices_test = indices_train[NUM_TRAIN_EXAMPLES:]
+    indices_train = indices_train[0:NUM_TRAIN_EXAMPLES]
+    train_set = (imgs_all[indices_train],
+                 np.array(labels_all[indices_train], dtype=np.int)
+                 )
+    heldout_set = (imgs_all[indices_test],
+                   np.array(labels_all[indices_test], dtype=np.int)
+                   )
 
     return train_set, heldout_set
 
@@ -180,7 +194,9 @@ class MNISTSequence(tf.keras.utils.Sequence):
 
 
 def train_model(model, train_seq, epochs=args.num_epochs,
-                validation_data=None, validation_split=0.0, tensorboard_callback=None):
+                validation_data=None, validation_split=0.0,
+                tensorboard_callback=None, hparams=None,
+                typename="training"):
     """
     Trains LeNet model on MNIST data in a flexible to data way
 
@@ -193,7 +209,7 @@ def train_model(model, train_seq, epochs=args.num_epochs,
     """
 
     tensorboard = tfk.callbacks.TensorBoard(
-        log_dir=LOG_DIR,
+        log_dir=LOG_DIR + "/" + typename,
         histogram_freq=0,
         batch_size=args.batch,
         write_graph=True,
@@ -223,6 +239,10 @@ def train_model(model, train_seq, epochs=args.num_epochs,
                 tensorboard.on_epoch_end(step, named_logs(model, logs))
 
     else:
+        callbacks = [tensorboard,]
+        if not hparams is None:
+            callbacks.append(hp.KerasCallback(LOG_DIR, hparams))
+
         if validation_data is None:
             training_history = model.fit(
                 train_seq.images,  # input
@@ -231,11 +251,10 @@ def train_model(model, train_seq, epochs=args.num_epochs,
                 verbose=1,
                 epochs=epochs,
                 validation_split=validation_split,
-                callbacks=[tensorboard,
+                callbacks=callbacks,#[tensorboard,
                            #earlyStopping,
                            #mcp_save,
-                           #reduce_lr_loss
-                           ],
+                           #reduce_lr_loss],
             )
         else:
             training_history = model.fit(
@@ -245,11 +264,10 @@ def train_model(model, train_seq, epochs=args.num_epochs,
                 verbose=1,
                 epochs=epochs,
                 validation_data=validation_data,
-                callbacks=[tensorboard,
+                callbacks=callbacks #[tensorboard,
                            #earlyStopping,
                            #mcp_save,
-                           #reduce_lr_loss
-                           ],
+                           #reduce_lr_loss],
             )
     return model
 
@@ -318,10 +336,6 @@ class DenseVariationalNotGrouped(tfkl.Layer):
 
         kernel_sigma = tf.math.softplus(self.kernel_rho) + eps
         bias_sigma = tf.math.softplus(self.bias_rho) + eps
-        # print(tfkb.get_value(self.bias_rho))
-        # print(tfkb.get_value(self.kernel_rho))
-        # print(tfkb.get_value(self.gamma_rho))
-        # print(tfkb.get_value(bias_sigma))
 
         result = tf.zeros_like(tfkb.dot(imgs, self.kernel_mu))
         # Monte-Carlo for loss
@@ -362,46 +376,49 @@ def main(argv):
     prior_params = {
         "tau_inv_0": 1e-2,  # prior sigma of weights
     }
-    train_set, heldout_set = get_shuffled_mnist('mnist.npz')
+    #train_set, heldout_set = get_shuffled_mnist('mnist.npz')
+    train_set, heldout_set = tf.keras.datasets.mnist.load_data(path='mnist.npz')
 
     train_seq = MNISTSequence(images=train_set[0], labels=train_set[1], batch_size=args.batch,
                               preprocessing=False)
-
-    inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
-                              ), name='img')
-    kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
-    output = DenseVariationalNotGrouped(NUM_CLASSES, kl_weight,
-                                        activation="softmax",
-                                        **prior_params)(inputs)
-    model = tfk.Model(inputs=inputs, outputs=output)
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
-                  optimizer=tfk.optimizers.Adam(lr=args.lr),
-                  metrics=['accuracy'],
-                  #run_eagerly=True,
-                  )
-    print(model.summary())
-
-    print(' ... Training main network')
-    epochs = 500  # args.num_epochs
-    rel_counts = []
-    uniques = []
-
     test_seq = MNISTSequence(images=heldout_set[0], labels=heldout_set[1], labels_to_binary=False,
                              batch_size=args.batch,
                              preprocessing=False)
+    inputs = tfk.Input(shape=(IMAGE_SHAPE[0] * IMAGE_SHAPE[1]
+                              ), name='img')
+    kl_weight = 1.0 / (NUM_TRAIN_EXAMPLES / float(args.batch))
 
-    load_weights = 0  # to use trained model or to train
+    print(' ... Training main network')
+    epochs = 100  # args.num_epochs$
+    verbose = 0
+    rel_counts = []
+    uniques = []
+
+    load_weights = 0  # to use trained model (load weights) or to train
     # group (from 0 to NUM_GROUPS-1)
     if load_weights:
+        output = DenseVariationalNotGrouped(NUM_CLASSES, kl_weight,
+                                            activation=None,
+                                            **prior_params)(inputs)
+        model = tfk.Model(inputs=inputs, outputs=output)
+        model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                      optimizer=tfk.optimizers.Adam(lr=args.lr),
+                      metrics=['accuracy'],
+                      # run_eagerly=True,
+                      )
+        # print(model.summary())
+
         trained_epochs = 100
         for g in range(NUM_GROUPS+1):
-                if trained_epochs == 10:
-                    name = "my_tf_logs_20201006-192650"
-                elif trained_epochs == 100:
-                    name = "my_tf_logs_20201006-194905"
-                else:
-                    return -1
-                weights = np.load("/home/anton/my_tf_logs/" + name + "/weights.npy", allow_pickle=True)
+                foldername = "/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results"  #"/home/anton/my_tf_logs/"
+                #if trained_epochs == 1:
+                #    name = "my_tf_logs_20201006-192650"
+                #elif trained_epochs == 10:
+                #    name = "my_tf_logs_20201006-194905"
+                #else:
+                #    return -1
+                name = ""
+                weights = np.load(foldername + name + "/weights_" + str(trained_epochs) + "_epochs.npy", allow_pickle=True)
                 w = model.get_weights()
                 if g == NUM_GROUPS:
                     off = 0
@@ -455,33 +472,61 @@ def main(argv):
                     + str(trained_epochs) + "-epochs",
                     dpi=300)
     else:
-        train_model(model, train_seq, validation_data=[test_seq.images,
-                                                       tf.keras.utils.to_categorical(heldout_set[1],
-                                                                                     num_classes=NUM_CLASSES)],
-                    epochs=epochs)
+        for m in range(5):
+            for t in (1e-0,):# 3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3):
+                    for lr in (1e-1,):# 1e-1, 3e-2, 1e-2, 3e-3):
+                        for num_sample in (20,):# 20, 50):
+                            prior_params = {
+                                "tau_inv_0": t,  # prior sigma of weights
+                                "num_sample": num_sample
+                            }
+                            print(epochs, num_sample, t, lr)
+                            inputs1 = tf.keras.layers.Flatten()(inputs),
 
-        result_prob = model.predict(test_seq.images)
-        result_argmax = np.argmax(result_prob, axis=1)
+                            #output = tfp.layers.DenseFlipout(NUM_CLASSES,
+                            #                                activation=None)(inputs)
+                            output = DenseVariationalNotGrouped(NUM_CLASSES, kl_weight,
+                                                                activation=None,
+                                                                **prior_params)(inputs)
+                            model = tfk.Model(inputs=inputs, outputs=output)
+                            model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+                                          optimizer=tfk.optimizers.Adam(lr=lr),
+                                          metrics=['accuracy'],
+                                          # run_eagerly=True,
+                                          )
 
-        print(sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax)))
-        res = np.zeros_like(result_argmax)
-        for i in range(len(result_argmax)):
-            res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
-                else int(-1 - heldout_set[1][i])
-        unique, counts = np.unique(res, return_counts=True)
-        uniques.append(unique.astype(int))
-        d = dict(zip(unique, counts))
-        print("Distribution of correct/incorrect predictions (key - true label plus one")
-        print(np.asarray((unique, counts)).T)
-        all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
-        a_all = dict(zip(all_indices, all_counts))
-        rel_counts.append(np.array([d[i] / a_all[abs(i) - 1] for i in unique]))
-        print(np.asarray((unique, rel_counts[0])).T)
+                            train_model(model, train_seq,
+                                        validation_data=[test_seq.images,
+                                                         tf.keras.utils.to_categorical(heldout_set[1],
+                                                                                       num_classes=NUM_CLASSES)],
+                                        epochs=epochs, hparams=None,
+                                        typename="train_" + str(epochs) +  "_" + str(lr) + "_" + str(t) #+ "_" + str(num_sample)
+                                        )
 
 
-    #plt.show()
+                            result_prob = model.predict(test_seq.images)
+                            result_argmax = np.argmax(result_prob, axis=1)
 
+                            acc = sum(1 for x, y in zip(heldout_set[1], result_argmax) if x == y) / float(len(result_argmax))
+                            print(acc)
+                            with open(LOG_DIR + "Output_non_hier.txt", "a+") as text_file:
+                                text_file.write("{} {} {} {} \n".format(acc, t, lr, num_sample))
 
+                        if verbose:
+                            res = np.zeros_like(result_argmax)
+                            for i in range(len(result_argmax)):
+                                res[i] = int(heldout_set[1][i] + 1) if result_argmax[i] == heldout_set[1][i] \
+                                    else int(-1 - heldout_set[1][i])
+                            unique, counts = np.unique(res, return_counts=True)
+                            uniques.append(unique.astype(int))
+                            d = dict(zip(unique, counts))
+                            print("Distribution of correct/incorrect predictions (key - true label plus one")
+                            print(np.asarray((unique, counts)).T)
+                            all_indices, all_counts = np.unique(heldout_set[1], return_counts=True)
+                            a_all = dict(zip(all_indices, all_counts))
+                            rel_counts.append(np.array([d[i] / a_all[abs(i) - 1] for i in unique]))
+                            print(np.asarray((unique, rel_counts[0])).T)
+    print(LOG_DIR)
 
 if __name__ == '__main__':
     if gpu:
