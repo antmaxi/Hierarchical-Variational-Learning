@@ -1,4 +1,4 @@
-# Hierarchical Federated Learning
+# Hierarchical Variational Learning
 
 
 Main files are ```hierarchical.py``` and ```non-hieararchical.py```, 
