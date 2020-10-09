@@ -3,8 +3,12 @@
 
 Main files are ```hierarchical.py``` and ```non-hieararchical.py```, 
 which implement correspondingly hierarchical and non-hierarchical Bayesian networks 
-for MNIST dataset labeling. Hierarchy is assumed to be connected with appeared similarity of digits, 
-which we group in 3 groups (0 group: 0, 3, 6, 8; 1 group: 2, 5; 2 group: 1, 4, 7, 9). 
+for MNIST dataset labeling. Description of parameters is in the beginning of these files.
+
+Hierarchy is assumed to be connected with appeared similarity of digits, 
+which we group in 3 groups (0 group: 0, 3, 6, 8; 1 group: 2, 5; 2 group: 1, 4, 7, 9).
+
+
 
 Network structure is as following the paper 
 ["Personalizing Gesture Recognition Using Hierarchical Bayesian Neural Networks"](
