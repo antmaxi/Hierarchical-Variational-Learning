@@ -54,12 +54,11 @@ NUM_CLASSES = 10
 NUM_GROUPS = 3
 
 ## if running on the GPU (isegpu2) or in the local machine
-GPU_FLAG = 1
+GPU_FLAG = 0
 if GPU_FLAG:
     LOG_DIR = '/local/home/antonma/HFL/my_tf_logs/my_tf_logs_gpu_'
 else:
-    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/' \
-              + 'results/my_tf_logs/my_tf_logs_gpu/'
+    LOG_DIR = os.getcwd() + '/results/my_tf_logs/my_tf_logs_gpu/'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 LABELS_CHANGE_DICT_GROUPED = {0: 0, 3: 0, 6: 0, 8: 0,  # 0
@@ -324,11 +323,11 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
                 verbose=verbose,
                 epochs=epochs,
                 validation_split=validation_split,
-                callbacks=[tensorboard,
-                           # earlyStopping,
-                           # mcp_save,
-                           # reduce_lr_loss
-                           ],
+                #callbacks=[tensorboard,
+                #           # earlyStopping,
+                #           # mcp_save,
+                #           # reduce_lr_loss
+                #           ],
                 shuffle=True,
             )
         else:
@@ -339,12 +338,12 @@ def train_model(model, inputs, outputs, validation_data=None, typename="grouped"
                 batch_size=args.batch,
                 verbose=verbose,
                 epochs=epochs,
-                callbacks=[tensorboard,
-                           # earlyStopping,
-                           # mcp_save,
-                           # reduce_lr_loss
-                           ],
-                shuffle=True,
+                #callbacks=[tensorboard,
+                #           # earlyStopping,
+                #           # mcp_save,
+                #           # reduce_lr_loss
+                #           ],
+                #shuffle=True,
             )
     return model
 
@@ -389,6 +388,11 @@ class DenseVariationalGrouped(tfkl.Layer):
         self.gamma_rho = None
         self.clip = clip
         super().__init__(**kwargs)
+
+    def compute_output_shape(self, input_shape):
+            return [(input_shape[0], input_shape[1]),
+                    (input_shape[0],1),
+                    ]
 
     def build(self, input_shape):
         self.kernel_mu = self.add_weight(name='kernel_mu',
@@ -553,7 +557,7 @@ class DenseVariationalGrouped(tfkl.Layer):
                                                     tf.constant([1, self.units], tf.int32))
                                             )
                 result += aux
-        return self.activation(result / self.num_sample)#, elbo  # TODO: normalize to number of non-NaNs?
+        return [self.activation(result / self.num_sample), elbo] # TODO: normalize to number of non-NaNs?
 
 
 def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.01, clip=0.0, prior_params=None,
@@ -567,7 +571,7 @@ def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.0
     # kl_weight = 0.0
     # TODO: add construction from list, e.g. (num_units, type, activation)
     # for el in structure_list:
-    output1 = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
+    output1, elbo = DenseVariationalGrouped(NUM_CLASSES, kl_weight,
                                             activation=None,
                                             num_sample=num_sample,
                                             **prior_params,
@@ -580,10 +584,10 @@ def create_compile_class_inference_model(structure_list=(), num_sample=5, lr=0.0
     #                                 num_sample=num_sample,
     #                                 **prior_params,
     #                                 clip=clip)([output1, input_logits, input_int], training=training)
-    model = tfk.Model(inputs=combined_input, outputs=output1,)# elbo])
-    model.compile(loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),# None],
+    model = tfk.Model(inputs=combined_input, outputs=[output1, elbo])
+    model.compile(loss=[tf.keras.losses.CategoricalCrossentropy(from_logits=True), None],
                   optimizer=tfk.optimizers.Adam(lr=lr),
-                  metrics=['accuracy'],
+                  #metrics=['accuracy'],
                   # run_eagerly=True,
                   )
     return model
@@ -599,7 +603,7 @@ def main(argv):
     }
 
     epochs = 100  # args.num_epochs
-    num_epochs_g = 100  # args.num_epochs_g
+    num_epochs_g = 1  # args.num_epochs_g
     num_sample = 5
     verbose = 1
 
@@ -618,9 +622,9 @@ def main(argv):
                                         batch_size=args.batch,
                                         labels_change=LABELS_CHANGE_GROUPED, labels_len=NUM_GROUPS,
                                         preprocessing=True)
-    train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
-                epochs=num_epochs_g, validation_split=0.0, verbose=verbose,
-                typename="grouped", )
+    #train_model(model_grouped, train_seq_grouped.images, train_seq_grouped.labels_bin,
+    #            epochs=num_epochs_g, validation_split=0.0, verbose=verbose,
+    #            typename="grouped", )
     print(" ... Predicting groups")
     predicted_groups_probs = model_grouped.predict(x=heldout_seq_grouped.images, batch_size=None,
                                                    verbose=verbose)
@@ -705,23 +709,23 @@ def main(argv):
                                         train_seq.labels_bin, typename="training",
                                         epochs=epochs - 10, verbose=verbose, validation_split=0.0)
                         else:
-                            #elbos = []
-                            #for j in range(epochs):
-                            train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
-                                        train_seq.labels_bin,
-                                        validation_data=([test_seq.images, test_seq_grouped.labels_bin,
-                                                          np.argmax(predicted_groups_probs, axis=1)],
-                                                         # test_seq_grouped.labels_int],
-                                                         tf.keras.utils.to_categorical(y=heldout_set[1],
-                                                                                       num_classes=NUM_CLASSES)),
-                                        typename="training",
-                                        epochs=epochs, verbose=verbose, validation_split=0.0)
-                            #    _, elbo_now = model.predict([test_seq.images, test_seq_grouped.labels_bin,
-                            #                                 np.argmax(predicted_groups_probs, axis=1)])
-                            ##                           elbos.append(elbo_now)
-                            #with open("ELBO.csv", "w", newline="") as f:
-                            #    writer = csv.writer(f)
-                            #    writer.writerows(elbos)
+                            elbos = []
+                            for j in range(epochs):
+                                train_model(model, [train_seq.images, train_seq.labels_bin, train_seq_grouped.labels_int],
+                                            train_seq.labels_bin,
+                                            validation_data=([test_seq.images, test_seq_grouped.labels_bin,
+                                                              np.argmax(predicted_groups_probs, axis=1)],
+                                                             # test_seq_grouped.labels_int],
+                                                             tf.keras.utils.to_categorical(y=heldout_set[1],
+                                                                                           num_classes=NUM_CLASSES)),
+                                            typename="training",
+                                            epochs=1, verbose=verbose, validation_split=0.0)
+                                _res, elbo_now = model.predict([test_seq.images, test_seq_grouped.labels_bin,
+                                                             np.argmax(predicted_groups_probs, axis=1)])
+                            elbos.append(elbo_now)
+                            with open("ELBO.csv", "w", newline="") as f:
+                                writer = csv.writer(f)
+                                writer.writerows(elbos)
                         # create prediction model and transfer trained weights
                         model_predict = create_compile_class_inference_model(num_sample=num_sample, clip=clip, lr=lr,
                                                                              prior_params=prior_params,

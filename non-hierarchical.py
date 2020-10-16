@@ -2,6 +2,8 @@
 # http://krasserm.github.io/2019/03/14/bayesian-neural-networks/ and
 # https://github.com/tensorflow/probability/blob/master/tensorflow_probability/examples/bayesian_neural_network.py
 
+# GPU_FLAG shows if the program will be run on GPU or local CPU
+
 # the main arguments are
 # num_epochs (for training the main network which decides class),
 # num_sample (how many times to sample in Monte-Carlo sampling to estimated the integral
@@ -48,11 +50,11 @@ NUM_HELDOUT_EXAMPLES = 10000
 NUM_CLASSES = 10
 NUM_GROUPS = 3
 
-gpu = 1
-if gpu:
+GPU_FLAG = 0
+if GPU_FLAG:
     LOG_DIR = '/local/home/antonma/HFL/my_tf_logs/my_tf_logs_gpu_non_'
 else:
-    LOG_DIR = '/home/anton/PycharmProjects/Hierarchical-Federated-Learning/results/my_tf_logs/my_tf_logs_non_'
+    LOG_DIR = os.getcwd() + '/results/my_tf_logs/my_tf_logs_non_'
 LOG_DIR = LOG_DIR + datetime.now().strftime("%Y%m%d-%H%M%S")
 
 parser = argparse.ArgumentParser(description='Choose the type of execution.')
@@ -476,6 +478,7 @@ def main(argv):
             for t in (1e-0,):# 3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3):
                     for lr in (1e-1,):# 1e-1, 3e-2, 1e-2, 3e-3):
                         for num_sample in (20,):# 20, 50):
+                            verbose = 0
                             prior_params = {
                                 "tau_inv_0": t,  # prior sigma of weights
                                 "num_sample": num_sample
@@ -529,6 +532,6 @@ def main(argv):
     print(LOG_DIR)
 
 if __name__ == '__main__':
-    if gpu:
+    if GPU_FLAG:
         gpu_session(num_gpus=1)  #
     app.run(main)
